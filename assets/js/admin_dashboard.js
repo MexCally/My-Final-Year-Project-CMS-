@@ -164,7 +164,55 @@ document.addEventListener("DOMContentLoaded", () => {
     if (lecturerDepartmentFilter) {
       lecturerDepartmentFilter.addEventListener("change", performLecturerSearch)
     }
+
+    document.querySelectorAll(".edit-course-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault()
+        const courseCode = btn.getAttribute("data-course-code")
+        populateCourseEditModal(courseCode)
+      })
+    })
   
+    document.querySelectorAll(".edit-lecturer-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault()
+        const lecturerId = btn.getAttribute("data-lecturer-id")
+        populateLecturerEditModal(lecturerId)
+      })
+    })
+  
+    // Registration approval/decline buttons are attached dynamically in populateRegistrationsTable
+  
+    // Grades functionality
+    const loadGradesBtn = document.getElementById("loadGradesBtn")
+    if (loadGradesBtn) {
+      loadGradesBtn.addEventListener("click", loadGrades)
+    }
+
+    const gradesSearchBtn = document.getElementById("gradesSearchBtn")
+    if (gradesSearchBtn) {
+      gradesSearchBtn.addEventListener("click", performGradesSearch)
+    }
+
+    const gradesSearchInput = document.getElementById("gradesSearchInput")
+    if (gradesSearchInput) {
+      gradesSearchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          performGradesSearch()
+        }
+      })
+    }
+
+    const gradesCourseFilter = document.getElementById("gradesCourseFilter")
+    if (gradesCourseFilter) {
+      gradesCourseFilter.addEventListener("change", performGradesSearch)
+    }
+
+    const gradesDepartmentFilter = document.getElementById("gradesDepartmentFilter")
+    if (gradesDepartmentFilter) {
+      gradesDepartmentFilter.addEventListener("change", performGradesSearch)
+    }
+
     document.querySelectorAll(".edit-course-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault()
@@ -295,9 +343,37 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     }
   
+    // Load courses for grades filter
+    loadCoursesForGradesFilter()
+
+    // Load data for report selects
+    loadStudentsForReports()
+    loadCoursesForReports()
+
+    // Report generation event listeners
+    const generateStudentReportBtn = document.getElementById("generateStudentReportBtn")
+    if (generateStudentReportBtn) {
+      generateStudentReportBtn.addEventListener("click", generateStudentReport)
+    }
+
+    const generateCourseReportBtn = document.getElementById("generateCourseReportBtn")
+    if (generateCourseReportBtn) {
+      generateCourseReportBtn.addEventListener("click", generateCourseReport)
+    }
+
+    const generateDepartmentReportBtn = document.getElementById("generateDepartmentReportBtn")
+    if (generateDepartmentReportBtn) {
+      generateDepartmentReportBtn.addEventListener("click", generateDepartmentReport)
+    }
+
+    const generateSystemReportBtn = document.getElementById("generateSystemReportBtn")
+    if (generateSystemReportBtn) {
+      generateSystemReportBtn.addEventListener("click", generateSystemReport)
+    }
+
     // Initialize dashboard as active section
     showSection("dashboard")
-  
+
     // Load initial data
     loadDashboardStats()
     loadRecentActivities()
@@ -2155,4 +2231,308 @@ fetch('../PHP/get_recent_activities.php')
       }
     })
   }
+
+// Grades Functions
+function loadGrades() {
+  fetch('../PHP/get_grades.php')
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      console.error('Error fetching grades:', data.error)
+      return
+    }
+    populateGradesTable(data)
+  })
+  .catch(error => {
+    console.error('Error loading grades:', error)
+  })
+}
+
+function performGradesSearch() {
+  const searchQuery = document.getElementById("gradesSearchInput").value.toLowerCase().trim()
+  const courseFilter = document.getElementById("gradesCourseFilter").value
+  const departmentFilter = document.getElementById("gradesDepartmentFilter").value
+
+  fetch('../PHP/get_grades.php')
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      console.error('Error fetching grades:', data.error)
+      return
+    }
+
+    let filteredData = Array.isArray(data) ? data : []
+
+    // Apply search filter - search across all relevant fields
+    if (searchQuery) {
+      filteredData = filteredData.filter(grade => {
+        // Student-related fields
+        const studentName = `${grade.first_name || ''} ${grade.last_name || ''}`.toLowerCase().trim()
+        const matricNo = (grade.Matric_No || '').toLowerCase()
+        const studentEmail = (grade.email || '').toLowerCase()
+        const studentDepartment = (grade.Department || '').toLowerCase()
+        const studentLevel = (grade.Level || '').toLowerCase()
+        const studentId = String(grade.student_id || '').toLowerCase()
+
+        // Course-related fields
+        const courseCode = (grade.course_code || '').toLowerCase()
+        const courseTitle = (grade.course_title || '').toLowerCase()
+        const courseDepartment = (grade.course_department || '').toLowerCase()
+        const courseLevel = (grade.course_level || '').toLowerCase()
+        const semester = (grade.semester || '').toLowerCase()
+        const courseUnit = String(grade.course_unit || '').toLowerCase()
+
+        // Lecturer-related fields
+        const lecturerName = (grade.lecturer_name || '').toLowerCase()
+
+        // Grade-related fields
+        const gradeValue = (grade.grade || '').toLowerCase()
+
+        return studentName.includes(searchQuery) ||
+               matricNo.includes(searchQuery) ||
+               studentEmail.includes(searchQuery) ||
+               studentDepartment.includes(searchQuery) ||
+               studentLevel.includes(searchQuery) ||
+               studentId.includes(searchQuery) ||
+               courseCode.includes(searchQuery) ||
+               courseTitle.includes(searchQuery) ||
+               courseDepartment.includes(searchQuery) ||
+               courseLevel.includes(searchQuery) ||
+               semester.includes(searchQuery) ||
+               courseUnit.includes(searchQuery) ||
+               lecturerName.includes(searchQuery) ||
+               gradeValue.includes(searchQuery)
+      })
+    }
+
+    // Apply course filter
+    if (courseFilter) {
+      filteredData = filteredData.filter(grade => grade.course_code === courseFilter)
+    }
+
+    // Apply department filter
+    if (departmentFilter) {
+      filteredData = filteredData.filter(grade => grade.Department === departmentFilter)
+    }
+
+    populateGradesTable(filteredData)
+  })
+  .catch(error => {
+    console.error('Error performing grades search:', error)
+  })
+}
+
+function populateGradesTable(data) {
+  const gradesTableBody = document.getElementById('gradesTableBody')
+  if (!gradesTableBody) return
+
+  gradesTableBody.innerHTML = ''
+
+  if (data.length === 0) {
+    gradesTableBody.innerHTML = `
+      <tr>
+        <td colspan="10" class="text-center text-muted">No grades found</td>
+      </tr>
+    `
+    return
+  }
+
+  data.forEach((grade, index) => {
+    const row = document.createElement('tr')
+    row.innerHTML = `
+      <td class="text-center">${index + 1}</td>
+      <td>${grade.student_name || 'N/A'}</td>
+      <td>${grade.matric_no || 'N/A'}</td>
+      <td>${grade.course_code || 'N/A'}</td>
+      <td>${grade.course_title || 'N/A'}</td>
+      <td>${grade.Department || 'N/A'}</td>
+      <td>${grade.Level || 'N/A'}</td>
+      <td>${grade.lecturer_name || 'N/A'}</td>
+      <td>${grade.grade || 'N/A'}</td>
+      <td>${grade.grade_point || 'N/A'}</td>
+    `
+    gradesTableBody.appendChild(row)
+  })
+}
+
+// Load courses for grades filter
+function loadCoursesForGradesFilter() {
+  const courseFilter = document.getElementById('gradesCourseFilter')
+  if (!courseFilter) return
+
+  fetch('../PHP/get_courses.php')
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      console.error('Error fetching courses for grades filter:', data.error)
+      return
+    }
+
+    // Clear existing options
+    courseFilter.innerHTML = '<option value="">All Courses</option>'
+
+    // Add courses to dropdown
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach(course => {
+        const option = document.createElement('option')
+        option.value = course.course_code
+        option.textContent = `${course.course_code} - ${course.course_title}`
+        courseFilter.appendChild(option)
+      })
+    }
+  })
+  .catch(error => {
+    console.error('Error loading courses for grades filter:', error)
+  })
+}
+
+// Load students for reports
+function loadStudentsForReports() {
+  const studentSelect = document.getElementById('studentReportSelect')
+  if (!studentSelect) return
+
+  fetch('../PHP/get_students.php')
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      console.error('Error fetching students for reports:', data.error)
+      return
+    }
+
+    // Clear existing options
+    studentSelect.innerHTML = '<option value="">All Students</option>'
+
+    // Add students to dropdown
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach(student => {
+        const option = document.createElement('option')
+        option.value = student.student_id
+        option.textContent = `${student.Matric_No} - ${student.first_name} ${student.last_name}`
+        studentSelect.appendChild(option)
+      })
+    }
+  })
+  .catch(error => {
+    console.error('Error loading students for reports:', error)
+  })
+}
+
+// Load courses for reports
+function loadCoursesForReports() {
+  const courseSelect = document.getElementById('courseReportSelect')
+  if (!courseSelect) return
+
+  fetch('../PHP/get_courses.php')
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      console.error('Error fetching courses for reports:', data.error)
+      return
+    }
+
+    // Clear existing options
+    courseSelect.innerHTML = '<option value="">All Courses</option>'
+
+    // Add courses to dropdown
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach(course => {
+        const option = document.createElement('option')
+        option.value = course.course_code
+        option.textContent = `${course.course_code} - ${course.course_title}`
+        courseSelect.appendChild(option)
+      })
+    }
+  })
+  .catch(error => {
+    console.error('Error loading courses for reports:', error)
+  })
+}
+
+// Report generation functions
+function generateStudentReport() {
+  const studentId = document.getElementById('studentReportSelect').value
+  const startDate = document.getElementById('studentReportStartDate').value
+  const endDate = document.getElementById('studentReportEndDate').value
+
+  if (!studentId) {
+    alert('Please select a student')
+    return
+  }
+
+  const params = {
+    student_id: studentId,
+    start_date: startDate,
+    end_date: endDate
+  }
+
+  console.log('Generating student report:', params)
+
+  // For now, show a placeholder message
+  // In a real implementation, this would fetch from a PHP endpoint
+  alert('Student report generation feature will be implemented with PHP backend. Selected student: ' + studentId)
+}
+
+function generateCourseReport() {
+  const courseCode = document.getElementById('courseReportSelect').value
+  const startDate = document.getElementById('courseReportStartDate').value
+  const endDate = document.getElementById('courseReportEndDate').value
+
+  if (!courseCode) {
+    alert('Please select a course')
+    return
+  }
+
+  const params = {
+    course_code: courseCode,
+    start_date: startDate,
+    end_date: endDate
+  }
+
+  console.log('Generating course report:', params)
+
+  // For now, show a placeholder message
+  // In a real implementation, this would fetch from a PHP endpoint
+  alert('Course report generation feature will be implemented with PHP backend. Selected course: ' + courseCode)
+}
+
+function generateDepartmentReport() {
+  const department = document.getElementById('departmentReportSelect').value
+  const startDate = document.getElementById('departmentReportStartDate').value
+  const endDate = document.getElementById('departmentReportEndDate').value
+
+  if (!department) {
+    alert('Please select a department')
+    return
+  }
+
+  const params = {
+    department: department,
+    start_date: startDate,
+    end_date: endDate
+  }
+
+  console.log('Generating department report:', params)
+
+  // For now, show a placeholder message
+  // In a real implementation, this would fetch from a PHP endpoint
+  alert('Department report generation feature will be implemented with PHP backend. Selected department: ' + department)
+}
+
+function generateSystemReport() {
+  const reportType = document.getElementById('systemReportType').value
+  const startDate = document.getElementById('systemReportStartDate').value
+  const endDate = document.getElementById('systemReportEndDate').value
+
+  const params = {
+    report_type: reportType,
+    start_date: startDate,
+    end_date: endDate
+  }
+
+  console.log('Generating system report:', params)
+
+  // For now, show a placeholder message
+  // In a real implementation, this would fetch from a PHP endpoint
+  alert('System report generation feature will be implemented with PHP backend. Report type: ' + reportType)
+}
   

@@ -1,3 +1,32 @@
+SELECT * FROM `studenttbl`
+ Profiling [ Edit inline ] [ Edit ] [ Explain SQL ] [ Create PHP code ] [ Refresh ]
+ Show all	|			Number of rows: 
+25
+Filter rows: 
+Search this table
+Sort by key: 
+None
+Full texts
+student_id
+AdminID
+Matric_No
+first_name
+last_name
+email
+Phone_Num
+Password
+Department
+Level
+academic_year
+Gender
+created_at
+profile_image
+
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

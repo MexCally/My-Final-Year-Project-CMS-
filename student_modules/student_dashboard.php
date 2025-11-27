@@ -55,6 +55,30 @@ $courseStmt->execute([$student_id]);
 $enrolled_courses = $courseStmt->fetchAll();
 $registered_courses_count = is_array($enrolled_courses) ? count($enrolled_courses) : 0;
 
+// Fetch upcoming deadlines for enrolled courses
+$deadlineStmt = $pdo->prepare("
+    SELECT 
+        d.deadline_id,
+        d.title,
+        d.description,
+        d.deadline_date,
+        d.created_at,
+        c.course_code,
+        c.course_title,
+        CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name
+    FROM deadlinetbl d
+    JOIN coursetbl c ON d.course_id = c.course_id
+    LEFT JOIN lecturertbl l ON d.lecturer_id = l.LecturerID
+    WHERE d.course_id IN (
+        SELECT course_id FROM enrollmenttbl WHERE student_id = ?
+    )
+    AND d.deadline_date >= CURDATE()
+    ORDER BY d.deadline_date ASC
+    LIMIT 5
+");
+$deadlineStmt->execute([$student_id]);
+$upcoming_deadlines = $deadlineStmt->fetchAll();
+
 // Fetch results for this student (uses resulttbl structure)
 $resultStmt = $pdo->prepare("
     SELECT 
@@ -164,6 +188,215 @@ if (is_array($results)) {
 }
 
 $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits, 2) : 'N/A';
+
+// Calculate semester-specific statistics
+$semester_credits = 0;
+$semester_points = 0.0;
+$current_semester = null;
+$current_academic_year_for_semester = null;
+
+// Find the latest semester from results
+if (!empty($results)) {
+    foreach ($results as $row) {
+        if ($row['academic_year'] && $row['semester']) {
+            $current_academic_year_for_semester = $row['academic_year'];
+            $current_semester = $row['semester'];
+            break; // Assuming results are ordered by latest first
+        }
+    }
+}
+
+// Calculate semester totals
+if ($current_semester && $current_academic_year_for_semester) {
+    foreach ($results as $row) {
+        if ($row['academic_year'] == $current_academic_year_for_semester && $row['semester'] == $current_semester) {
+            $raw_score = $row['total_score'] ?? null;
+            $raw_letter = $row['grade_letter'] ?? '';
+            $credits = (int)($row['course_unit'] ?? 0);
+            if ($credits <= 0) {
+                $credits = 3;
+            }
+
+            $points = null;
+            if ($raw_score !== null && $raw_score !== '' && is_numeric($raw_score)) {
+                $score = (float)$raw_score;
+                if ($score < 40) {
+                    $points = 0.0;
+                } elseif ($score < 45) {
+                    $points = 1.0;
+                } elseif ($score < 50) {
+                    $points = 2.0;
+                } elseif ($score < 60) {
+                    $points = 3.0;
+                } elseif ($score < 70) {
+                    $points = 4.0;
+                } else {
+                    $points = 5.0;
+                }
+            } else {
+                $letter = strtoupper(trim($raw_letter));
+                if (isset($letter_points_map[$letter])) {
+                    $points = $letter_points_map[$letter];
+                }
+            }
+
+            if ($points !== null) {
+                $semester_credits += $credits;
+                $semester_points += $credits * $points;
+            }
+        }
+    }
+}
+
+$semester_gpa = $semester_credits > 0 ? number_format($semester_points / $semester_credits, 2) : 'N/A';
+
+// Determine academic standing
+$academic_standing = 'Not Available';
+if ($current_gpa !== 'N/A' && is_numeric($current_gpa)) {
+    $gpa_value = (float)$current_gpa;
+    if ($gpa_value >= 3.5) {
+        $academic_standing = "Dean's List - Excellent Performance";
+    } elseif ($gpa_value >= 3.0) {
+        $academic_standing = "Good Standing";
+    } elseif ($gpa_value >= 2.0) {
+        $academic_standing = "Academic Warning";
+    } else {
+        $academic_standing = "Academic Probation";
+    }
+}
+
+// Group results by academic year and semester for transcript
+$transcript_data = [];
+if (is_array($results)) {
+    foreach ($results as $row) {
+        $year = $row['academic_year'] ?? '';
+        $sem = $row['semester'] ?? '';
+        if ($year && $sem) {
+            if (!isset($transcript_data[$year])) {
+                $transcript_data[$year] = [];
+            }
+            if (!isset($transcript_data[$year][$sem])) {
+                $transcript_data[$year][$sem] = [];
+            }
+            $transcript_data[$year][$sem][] = $row;
+        }
+    }
+}
+
+// Get course IDs with results
+$result_course_ids = is_array($results) ? array_column($results, 'course_id') : [];
+
+// In-progress courses: enrolled but no results
+$in_progress_courses = [];
+if (is_array($enrolled_courses)) {
+    foreach ($enrolled_courses as $course) {
+        if (!in_array($course['course_id'], $result_course_ids)) {
+            $in_progress_courses[] = $course;
+        }
+    }
+}
+
+// Calculate in-progress credits
+$in_progress_credits = 0;
+if (!empty($in_progress_courses)) {
+    foreach ($in_progress_courses as $course) {
+        $in_progress_credits += (int)($course['course_unit'] ?? 3);
+    }
+}
+
+// Academic honors based on GPA
+$academic_honors = [];
+if ($current_gpa !== 'N/A' && is_numeric($current_gpa)) {
+    $gpa_value = (float)$current_gpa;
+    if ($gpa_value >= 3.5) {
+        $academic_honors[] = "Dean's List - Excellent Performance";
+    }
+}
+
+try {
+    $degreeRequirementsStmt = $pdo->prepare("SELECT category, required_credits FROM degree_requirementstbl");
+    $degreeRequirementsStmt->execute();
+    $degree_requirements = $degreeRequirementsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    $degree_total_credits = array_sum($degree_requirements);
+} catch (Exception $e) {
+    $degree_requirements = [];
+    $degree_total_credits = 0;
+}
+
+
+// Separate core and general education requirements
+$core_requirements = [];
+$gen_ed_requirements = [];
+
+foreach ($degree_requirements as $category => $credits) {
+    if (in_array($category, ['Computer Science Core', 'Mathematics', 'Science Requirements'])) {
+        $core_requirements[$category] = $credits;
+    } elseif (in_array($category, ['English & Communication', 'Liberal Arts', 'Electives'])) {
+        $gen_ed_requirements[$category] = $credits;
+    }
+}
+
+// Map departments to categories
+$department_mapping = [
+    'Computer Science' => 'Computer Science Core',
+    'Mathematics' => 'Mathematics',
+    'Science' => 'Science Requirements',
+    'English' => 'English & Communication',
+    'Communication' => 'English & Communication',
+    'Liberal Arts' => 'Liberal Arts',
+    // Others go to Electives
+];
+
+// Calculate completed credits by category
+$completed_credits = [
+    'Computer Science Core' => 0,
+    'Mathematics' => 0,
+    'Science Requirements' => 0,
+    'English & Communication' => 0,
+    'Liberal Arts' => 0,
+    'Electives' => 0,
+];
+
+if (is_array($results)) {
+    foreach ($results as $row) {
+        $department = $row['department'] ?? '';
+        $credits = (int)($row['course_unit'] ?? 0);
+        if ($credits <= 0) $credits = 3;
+
+        // Only count if has grade (completed course)
+        $has_grade = ($row['total_score'] !== null && $row['total_score'] !== '' && is_numeric($row['total_score'])) ||
+                     ($row['grade_letter'] !== null && $row['grade_letter'] !== '');
+
+        if ($has_grade) {
+            $category = $department_mapping[$department] ?? 'Electives';
+            $completed_credits[$category] += $credits;
+        }
+    }
+}
+
+// Calculate percentages
+$overall_percentage = $total_credits > 0 ? round(($total_credits / $degree_total_credits) * 100, 1) : 0;
+
+// Graduation timeline calculation
+$level = (int)$student_level;
+$semesters_remaining = max(0, 8 - floor($level / 100) * 2); // Rough estimate: 8 semesters total
+$current_year = (int)date('Y');
+$expected_graduation_year = $current_year + ceil($semesters_remaining / 2);
+$expected_graduation_semester = ($semesters_remaining % 2 == 0) ? 'Spring' : 'Fall';
+
+$credits_needed = max(0, $degree_total_credits - $total_credits);
+
+// Academic progress status
+$on_track = $total_credits >= ($degree_total_credits * 0.5); // On track if >50% done
+
+$progress_percentages = [
+    'Computer Science Core' => $core_requirements['Computer Science Core'] > 0 ? round(($completed_credits['Computer Science Core'] / $core_requirements['Computer Science Core']) * 100, 1) : 0,
+    'Mathematics' => $core_requirements['Mathematics'] > 0 ? round(($completed_credits['Mathematics'] / $core_requirements['Mathematics']) * 100, 1) : 0,
+    'Science Requirements' => $core_requirements['Science Requirements'] > 0 ? round(($completed_credits['Science Requirements'] / $core_requirements['Science Requirements']) * 100, 1) : 0,
+    'English & Communication' => $gen_ed_requirements['English & Communication'] > 0 ? round(($completed_credits['English & Communication'] / $gen_ed_requirements['English & Communication']) * 100, 1) : 0,
+    'Liberal Arts' => $gen_ed_requirements['Liberal Arts'] > 0 ? round(($completed_credits['Liberal Arts'] / $gen_ed_requirements['Liberal Arts']) * 100, 1) : 0,
+    'Electives' => $gen_ed_requirements['Electives'] > 0 ? round(($completed_credits['Electives'] / $gen_ed_requirements['Electives']) * 100, 1) : 0,
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -329,33 +562,49 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                         <h5 class="mb-0"><i class="fas fa-calendar me-2"></i>Upcoming Deadlines</h5>
                                     </div>
                                     <div class="card-body">
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between">
-                                                <small class="fw-bold">Algorithm Analysis Project</small>
-                                                <small class="text-danger">2 days</small>
+                                        <?php if (!empty($upcoming_deadlines)): ?>
+                                            <?php foreach ($upcoming_deadlines as $deadline): ?>
+                                                <?php
+                                                    $deadline_date = strtotime($deadline['deadline_date']);
+                                                    $today = strtotime(date('Y-m-d'));
+                                                    $days_remaining = ceil(($deadline_date - $today) / (60 * 60 * 24));
+
+                                                    $progress_color = 'bg-success';
+                                                    $text_color = 'text-success';
+                                                    $progress_width = 50;
+
+                                                    if ($days_remaining <= 2) {
+                                                        $progress_color = 'bg-danger';
+                                                        $text_color = 'text-danger';
+                                                        $progress_width = 90;
+                                                    } elseif ($days_remaining <= 5) {
+                                                        $progress_color = 'bg-warning';
+                                                        $text_color = 'text-warning';
+                                                        $progress_width = 70;
+                                                    }
+
+                                                    $days_text = $days_remaining == 1 ? '1 day' : $days_remaining . ' days';
+                                                ?>
+                                                <div class="mb-3">
+                                                    <div class="d-flex justify-content-between">
+                                                        <small class="fw-bold">
+                                                            <?php echo htmlspecialchars($deadline['title']); ?>
+                                                            <br>
+                                                            <span class="text-muted small"><?php echo htmlspecialchars($deadline['course_code'] . ' - ' . $deadline['course_title']); ?></span>
+                                                        </small>
+                                                        <small class="<?php echo $text_color; ?>"><?php echo $days_text; ?></small>
+                                                    </div>
+                                                    <div class="progress progress-custom mt-1">
+                                                        <div class="progress-bar <?php echo $progress_color; ?>" style="width: <?php echo $progress_width; ?>%"></div>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <div class="text-center text-muted py-3">
+                                                <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                                <p>No upcoming deadlines</p>
                                             </div>
-                                            <div class="progress progress-custom mt-1">
-                                                <div class="progress-bar bg-danger" style="width: 80%"></div>
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between">
-                                                <small class="fw-bold">Software Engineering Essay</small>
-                                                <small class="text-warning">5 days</small>
-                                            </div>
-                                            <div class="progress progress-custom mt-1">
-                                                <div class="progress-bar bg-warning" style="width: 60%"></div>
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between">
-                                                <small class="fw-bold">Network Security Lab</small>
-                                                <small class="text-success">10 days</small>
-                                            </div>
-                                            <div class="progress progress-custom mt-1">
-                                                <div class="progress-bar bg-success" style="width: 30%"></div>
-                                            </div>
-                                        </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -542,15 +791,15 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                     <div class="col-md-6">
                                         <div class="alert alert-info alert-custom">
                                             <h6><i class="fas fa-info-circle me-2"></i>Semester Summary</h6>
-                                            <p class="mb-1"><strong>Total Credit Hours:</strong> 12</p>
-                                            <p class="mb-1"><strong>Semester GPA:</strong> 3.5</p>
-                                            <p class="mb-0"><strong>Cumulative GPA:</strong> 3.7</p>
+                                            <p class="mb-1"><strong>Total Credit Hours:</strong> <?php echo htmlspecialchars($semester_credits); ?></p>
+                                            <p class="mb-1"><strong>Semester GPA:</strong> <?php echo htmlspecialchars($semester_gpa); ?></p>
+                                            <p class="mb-0"><strong>Cumulative GPA:</strong> <?php echo htmlspecialchars($current_gpa); ?></p>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="alert alert-success alert-custom">
                                             <h6><i class="fas fa-trophy me-2"></i>Academic Standing</h6>
-                                            <p class="mb-0">Dean's List - Excellent Performance</p>
+                                            <p class="mb-0"><?php echo htmlspecialchars($academic_standing); ?></p>
                                         </div>
                                     </div>
                                 </div>
@@ -577,152 +826,150 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                 <div class="row">
                                     <div class="col-md-8">
                                         <h5 class="mb-1">Official Academic Transcript</h5>
-                                        <p class="mb-0">Computer Science Program</p>
+                                        <p class="mb-0"><?php echo htmlspecialchars($student_department); ?> Program</p>
                                     </div>
                                     <div class="col-md-4 text-end">
-                                        <p class="mb-1"><strong>Student ID:</strong> STU2024001</p>
-                                        <p class="mb-0"><strong>Generated:</strong> March 10, 2024</p>
+                                        <p class="mb-1"><strong>Student ID:</strong> <?php echo htmlspecialchars($student_matric); ?></p>
+                                        <p class="mb-0"><strong>Generated:</strong> <?php echo htmlspecialchars(date('F j, Y')); ?></p>
                                     </div>
                                 </div>
                             </div>
                             <div class="card-body">
-                                <!-- Year 1 -->
-                                <h6 class="text-primary border-bottom pb-2 mb-3">Academic Year 2022-2023</h6>
-                                <div class="row mb-4">
-                                    <div class="col-md-6">
-                                        <h6 class="text-muted">Fall 2022</h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>CS101 - Introduction to Programming</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-success">A</span></td>
-                                                        <td>4.0</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>MATH201 - Calculus I</td>
-                                                        <td>4</td>
-                                                        <td><span class="badge bg-success">B+</span></td>
-                                                        <td>3.3</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>ENG101 - English Composition</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-success">A-</span></td>
-                                                        <td>3.7</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <p class="small text-muted">Semester GPA: 3.67 | Credit Hours: 10</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6 class="text-muted">Spring 2023</h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>CS102 - Object-Oriented Programming</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-success">A</span></td>
-                                                        <td>4.0</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>MATH202 - Calculus II</td>
-                                                        <td>4</td>
-                                                        <td><span class="badge bg-success">B</span></td>
-                                                        <td>3.0</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>PHYS101 - Physics I</td>
-                                                        <td>4</td>
-                                                        <td><span class="badge bg-success">B+</span></td>
-                                                        <td>3.3</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <p class="small text-muted">Semester GPA: 3.45 | Credit Hours: 11</p>
-                                    </div>
-                                </div>
+                                <?php if (!empty($transcript_data)): ?>
+                                    <?php foreach ($transcript_data as $year => $semesters): ?>
+                                        <h6 class="text-primary border-bottom pb-2 mb-3">Academic Year <?php echo htmlspecialchars($year); ?></h6>
+                                        <div class="row mb-4">
+                                            <?php
+                                            $semester_count = 0;
+                                            foreach ($semesters as $sem => $courses):
+                                                $semester_count++;
+                                                $semester_credits = 0;
+                                                $semester_points = 0.0;
+                                                $is_current = ($year == $current_academic_year && $sem == $current_semester);
+                                            ?>
+                                            <div class="col-md-6">
+                                                <h6 class="text-muted"><?php echo htmlspecialchars($sem); ?><?php echo $is_current ? ' (Current)' : ''; ?></h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm">
+                                                        <tbody>
+                                                            <?php foreach ($courses as $course): ?>
+                                                                <?php
+                                                                $raw_score = $course['total_score'] ?? null;
+                                                                $raw_letter = $course['grade_letter'] ?? '';
+                                                                $credits = (int)($course['course_unit'] ?? 3);
+                                                                $points = null;
+                                                                $display_letter = '';
+                                                                $gpa_points = '-';
 
-                                <!-- Year 2 -->
-                                <h6 class="text-primary border-bottom pb-2 mb-3">Academic Year 2023-2024</h6>
-                                <div class="row mb-4">
-                                    <div class="col-md-6">
-                                        <h6 class="text-muted">Fall 2023</h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>CS201 - Computer Architecture</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-success">A-</span></td>
-                                                        <td>3.7</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>CS205 - Database Systems</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-success">B+</span></td>
-                                                        <td>3.3</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>STAT301 - Statistics</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-success">A</span></td>
-                                                        <td>4.0</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                                                if ($raw_score !== null && $raw_score !== '' && is_numeric($raw_score)) {
+                                                                    $score = (float)$raw_score;
+                                                                    if ($score < 40) {
+                                                                        $points = 0.0;
+                                                                        $display_letter = 'F';
+                                                                    } elseif ($score < 45) {
+                                                                        $points = 1.0;
+                                                                        $display_letter = 'E';
+                                                                    } elseif ($score < 50) {
+                                                                        $points = 2.0;
+                                                                        $display_letter = 'D';
+                                                                    } elseif ($score < 60) {
+                                                                        $points = 3.0;
+                                                                        $display_letter = 'C';
+                                                                    } elseif ($score < 70) {
+                                                                        $points = 4.0;
+                                                                        $display_letter = 'B';
+                                                                    } else {
+                                                                        $points = 5.0;
+                                                                        $display_letter = 'A';
+                                                                    }
+                                                                } else {
+                                                                    $letter = strtoupper(trim($raw_letter));
+                                                                    $display_letter = $letter;
+                                                                    if (isset($letter_points_map[$letter])) {
+                                                                        $points = $letter_points_map[$letter];
+                                                                    }
+                                                                }
+
+                                                                if ($points !== null) {
+                                                                    $semester_credits += $credits;
+                                                                    $semester_points += $credits * $points;
+                                                                    $gpa_points = number_format($points, 1);
+                                                                }
+                                                                ?>
+                                                                <tr>
+                                                                    <td><?php echo htmlspecialchars($course['course_code'] . ' - ' . $course['course_title']); ?></td>
+                                                                    <td><?php echo $credits; ?></td>
+                                                                    <td>
+                                                                        <?php if ($points !== null): ?>
+                                                                            <span class="badge bg-success"><?php echo htmlspecialchars($display_letter); ?></span>
+                                                                        <?php else: ?>
+                                                                            <span class="badge bg-secondary">In Progress</span>
+                                                                        <?php endif; ?>
+                                                                    </td>
+                                                                    <td><?php echo htmlspecialchars($gpa_points); ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+
+                                                            <?php if ($is_current && !empty($in_progress_courses)): ?>
+                                                                <?php foreach ($in_progress_courses as $course): ?>
+                                                                    <tr>
+                                                                        <td><?php echo htmlspecialchars($course['course_code'] . ' - ' . $course['course_title']); ?></td>
+                                                                        <td><?php echo (int)($course['course_unit'] ?? 3); ?></td>
+                                                                        <td><span class="badge bg-secondary">In Progress</span></td>
+                                                                        <td>-</td>
+                                                                    </tr>
+                                                                <?php endforeach; ?>
+                                                            <?php endif; ?>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <?php
+                                                $semester_gpa_display = $semester_credits > 0 ? number_format($semester_points / $semester_credits, 2) : 'N/A';
+                                                ?>
+                                                <p class="small text-muted">
+                                                    <?php if ($semester_credits > 0): ?>
+                                                        Semester GPA: <?php echo htmlspecialchars($semester_gpa_display); ?> | Credit Hours: <?php echo $semester_credits; ?>
+                                                    <?php else: ?>
+                                                        Credit Hours: <?php echo $semester_credits; ?>
+                                                    <?php endif; ?>
+                                                </p>
+                                            </div>
+                                            <?php if ($semester_count % 2 == 0): ?>
                                         </div>
-                                        <p class="small text-muted">Semester GPA: 3.67 | Credit Hours: 9</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6 class="text-muted">Spring 2024 (Current)</h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>CS301 - Data Structures & Algorithms</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-secondary">In Progress</span></td>
-                                                        <td>-</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>CS350 - Software Engineering</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-secondary">In Progress</span></td>
-                                                        <td>-</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>CS410 - Web Development</td>
-                                                        <td>3</td>
-                                                        <td><span class="badge bg-secondary">In Progress</span></td>
-                                                        <td>-</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                        <div class="row mb-4">
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
                                         </div>
-                                        <p class="small text-muted">Credit Hours: 9</p>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                        <p>No transcript data available yet</p>
                                     </div>
-                                </div>
+                                <?php endif; ?>
 
                                 <!-- Summary -->
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="alert alert-primary alert-custom">
                                             <h6><i class="fas fa-graduation-cap me-2"></i>Academic Summary</h6>
-                                            <p class="mb-1"><strong>Total Credit Hours Completed:</strong> 30</p>
-                                            <p class="mb-1"><strong>Credit Hours in Progress:</strong> 9</p>
-                                            <p class="mb-0"><strong>Cumulative GPA:</strong> 3.70</p>
+                                            <p class="mb-1"><strong>Total Credit Hours Completed:</strong> <?php echo htmlspecialchars($total_credits); ?></p>
+                                            <p class="mb-1"><strong>Credit Hours in Progress:</strong> <?php echo htmlspecialchars($in_progress_credits); ?></p>
+                                            <p class="mb-0"><strong>Cumulative GPA:</strong> <?php echo htmlspecialchars($current_gpa); ?></p>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="alert alert-success alert-custom">
                                             <h6><i class="fas fa-award me-2"></i>Academic Honors</h6>
-                                            <p class="mb-1">• Dean's List - Fall 2022, Spring 2024</p>
-                                            <p class="mb-0">• Academic Excellence Award - 2023</p>
+                                            <?php if (!empty($academic_honors)): ?>
+                                                <p class="mb-0">
+                                                    <?php foreach ($academic_honors as $honor): ?>
+                                                        • <?php echo htmlspecialchars($honor); ?><br>
+                                                    <?php endforeach; ?>
+                                                </p>
+                                            <?php else: ?>
+                                                <p class="mb-0">No academic honors yet</p>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -734,7 +981,7 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                     <div id="progress" class="content-section" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2 class="text-primary fw-bold">Academic Progress Monitor</h2>
-                            <span class="badge bg-success fs-6">On Track for Graduation</span>
+                            <span class="badge bg-<?php echo $on_track ? 'success' : 'warning'; ?> fs-6"><?php echo $on_track ? 'On Track for Graduation' : 'Off Track'; ?></span>
                         </div>
 
                         <div class="row mb-4">
@@ -747,10 +994,10 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                         <div class="mb-4">
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span class="fw-bold">Overall Degree Completion</span>
-                                                <span class="fw-bold">39/120 Credits (32.5%)</span>
+                                                <span class="fw-bold"><?php echo htmlspecialchars($total_credits); ?>/<?php echo htmlspecialchars($degree_total_credits); ?> Credits (<?php echo htmlspecialchars($overall_percentage); ?>%)</span>
                                             </div>
                                             <div class="progress progress-custom" style="height: 15px;">
-                                                <div class="progress-bar bg-primary" style="width: 32.5%"></div>
+                                                <div class="progress-bar bg-primary" style="width: <?php echo htmlspecialchars($overall_percentage); ?>%"></div>
                                             </div>
                                         </div>
 
@@ -760,28 +1007,28 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between mb-1">
                                                         <small>Computer Science Core</small>
-                                                        <small>18/45 Credits</small>
+                                                        <small><?php echo htmlspecialchars($completed_credits['Computer Science Core']); ?>/<?php echo htmlspecialchars($core_requirements['Computer Science Core']); ?> Credits</small>
                                                     </div>
                                                     <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-success" style="width: 40%"></div>
+                                                        <div class="progress-bar bg-success" style="width: <?php echo htmlspecialchars($progress_percentages['Computer Science Core']); ?>%"></div>
                                                     </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between mb-1">
                                                         <small>Mathematics</small>
-                                                        <small>8/12 Credits</small>
+                                                        <small><?php echo htmlspecialchars($completed_credits['Mathematics']); ?>/<?php echo htmlspecialchars($core_requirements['Mathematics']); ?> Credits</small>
                                                     </div>
                                                     <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-warning" style="width: 67%"></div>
+                                                        <div class="progress-bar bg-warning" style="width: <?php echo htmlspecialchars($progress_percentages['Mathematics']); ?>%"></div>
                                                     </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between mb-1">
                                                         <small>Science Requirements</small>
-                                                        <small>4/8 Credits</small>
+                                                        <small><?php echo htmlspecialchars($completed_credits['Science Requirements']); ?>/<?php echo htmlspecialchars($core_requirements['Science Requirements']); ?> Credits</small>
                                                     </div>
                                                     <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-info" style="width: 50%"></div>
+                                                        <div class="progress-bar bg-info" style="width: <?php echo htmlspecialchars($progress_percentages['Science Requirements']); ?>%"></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -790,28 +1037,28 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between mb-1">
                                                         <small>English & Communication</small>
-                                                        <small>6/9 Credits</small>
+                                                        <small><?php echo htmlspecialchars($completed_credits['English & Communication']); ?>/<?php echo htmlspecialchars($gen_ed_requirements['English & Communication']); ?> Credits</small>
                                                     </div>
                                                     <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-success" style="width: 67%"></div>
+                                                        <div class="progress-bar bg-success" style="width: <?php echo htmlspecialchars($progress_percentages['English & Communication']); ?>%"></div>
                                                     </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between mb-1">
                                                         <small>Liberal Arts</small>
-                                                        <small>3/15 Credits</small>
+                                                        <small><?php echo htmlspecialchars($completed_credits['Liberal Arts']); ?>/<?php echo htmlspecialchars($gen_ed_requirements['Liberal Arts']); ?> Credits</small>
                                                     </div>
                                                     <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-danger" style="width: 20%"></div>
+                                                        <div class="progress-bar bg-danger" style="width: <?php echo htmlspecialchars($progress_percentages['Liberal Arts']); ?>%"></div>
                                                     </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between mb-1">
                                                         <small>Electives</small>
-                                                        <small>0/31 Credits</small>
+                                                        <small><?php echo htmlspecialchars($completed_credits['Electives']); ?>/<?php echo htmlspecialchars($gen_ed_requirements['Electives']); ?> Credits</small>
                                                     </div>
                                                     <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                                                        <div class="progress-bar bg-secondary" style="width: <?php echo htmlspecialchars($progress_percentages['Electives']); ?>%"></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -826,16 +1073,16 @@ $current_gpa = $total_credits > 0 ? number_format($total_points / $total_credits
                                     </div>
                                     <div class="card-body">
                                         <div class="text-center mb-3">
-                                            <h3 class="text-primary">Spring 2026</h3>
+                                            <h3 class="text-primary"><?php echo htmlspecialchars($expected_graduation_semester . ' ' . $expected_graduation_year); ?></h3>
                                             <p class="text-muted">Expected Graduation</p>
                                         </div>
                                         <div class="mb-3">
                                             <small class="text-muted">Semesters Remaining</small>
-                                            <h4 class="text-success">4</h4>
+                                            <h4 class="text-success"><?php echo htmlspecialchars($semesters_remaining); ?></h4>
                                         </div>
                                         <div class="mb-3">
                                             <small class="text-muted">Credits Needed</small>
-                                            <h4 class="text-warning">81</h4>
+                                            <h4 class="text-warning"><?php echo htmlspecialchars($credits_needed); ?></h4>
                                         </div>
                                         <div class="alert alert-info alert-custom">
                                             <small><i class="fas fa-lightbulb me-1"></i>

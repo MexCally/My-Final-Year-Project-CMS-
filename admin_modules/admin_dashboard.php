@@ -449,77 +449,58 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                         </div>
                     </div>
 
+                    <!-- Search and Filter -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="gradesSearchInput" placeholder="Search by student name, matric no, or course...">
+                                <button class="btn btn-outline-secondary" type="button" id="gradesSearchBtn">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="gradesCourseFilter">
+                                <option value="">All Courses</option>
+                                <!-- Courses will be loaded dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="gradesDepartmentFilter">
+                                <option value="">All Departments</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Mass Communication">Mass Communication</option>
+                                <option value="Business Administration">Business Administration</option>
+                                <option value="Accountancy">Accountancy</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" id="loadGradesBtn">
+                                <i class="fas fa-sync-alt"></i> Load Grades
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="card shadow">
                         <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <select class="form-select">
-                                        <option>Select Course</option>
-                                        <option>CS101 - Introduction to Programming</option>
-                                        <option>MATH201 - Calculus II</option>
-                                        <option>PHY301 - Quantum Physics</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <select class="form-select">
-                                        <option>Select Assessment</option>
-                                        <option>Midterm Exam</option>
-                                        <option>Final Exam</option>
-                                        <option>Assignment 1</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-primary">Load Grades</button>
-                                </div>
-                            </div>
-
                             <div class="table-responsive">
                                 <table class="table table-bordered">
                                     <thead>
                                         <tr>
-                                            <th>Student ID</th>
+                                            <th>S/N</th>
+                                            <th>Matric No</th>
                                             <th>Student Name</th>
-                                            <th>Assessment</th>
-                                            <th>Score</th>
+                                            <th>Course Code</th>
+                                            <th>Course Title</th>
+                                            <th>Department</th>
+                                            <th>Level</th>
                                             <th>Grade</th>
-                                            <th>Status</th>
+                                            <th>Lecturer</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>STU001</td>
-                                            <td>John Doe</td>
-                                            <td>Midterm Exam</td>
-                                            <td>85/100</td>
-                                            <td>B+</td>
-                                            <td><span class="badge bg-success">Graded</span></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary">Edit</button>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>STU002</td>
-                                            <td>Jane Smith</td>
-                                            <td>Midterm Exam</td>
-                                            <td>92/100</td>
-                                            <td>A-</td>
-                                            <td><span class="badge bg-success">Graded</span></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary">Edit</button>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>STU003</td>
-                                            <td>Mike Johnson</td>
-                                            <td>Midterm Exam</td>
-                                            <td>-</td>
-                                            <td>-</td>
-                                            <td><span class="badge bg-warning">Pending</span></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary">Add Grade</button>
-                                            </td>
-                                        </tr>
+                                    <tbody id="gradesTableBody">
+                                        <!-- Grades will be loaded dynamically -->
                                     </tbody>
                                 </table>
                             </div>
@@ -547,22 +528,20 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                 <div class="card-body">
                                     <div class="mb-3">
                                         <label class="form-label">Select Student</label>
-                                        <select class="form-select">
-                                            <option>Choose student...</option>
-                                            <option>John Doe (STU001)</option>
-                                            <option>Jane Smith (STU002)</option>
-                                            <option>Mike Johnson (STU003)</option>
+                                        <select class="form-select" id="studentReportSelect">
+                                            <option value="">Choose student...</option>
+                                            <!-- Students will be loaded dynamically -->
                                         </select>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Report Type</label>
-                                        <select class="form-select">
-                                            <option>Academic Transcript</option>
-                                            <option>Grade Report</option>
-                                            <option>Course History</option>
+                                        <select class="form-select" id="studentReportType">
+                                            <option value="transcript">Academic Transcript</option>
+                                            <option value="grade_report">Grade Report</option>
+                                            <option value="course_history">Course History</option>
                                         </select>
                                     </div>
-                                    <button class="btn btn-primary">Generate Report</button>
+                                    <button class="btn btn-primary" id="generateStudentReportBtn">Generate Report</button>
                                 </div>
                             </div>
                         </div>
@@ -575,22 +554,83 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                 <div class="card-body">
                                     <div class="mb-3">
                                         <label class="form-label">Select Course</label>
-                                        <select class="form-select">
-                                            <option>Choose course...</option>
-                                            <option>CS101 - Introduction to Programming</option>
-                                            <option>MATH201 - Calculus II</option>
-                                            <option>PHY301 - Quantum Physics</option>
+                                        <select class="form-select" id="courseReportSelect">
+                                            <option value="">Choose course...</option>
+                                            <!-- Courses will be loaded dynamically -->
                                         </select>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Report Type</label>
-                                        <select class="form-select">
-                                            <option>Enrollment Report</option>
-                                            <option>Grade Distribution</option>
-                                            <option>Performance Analysis</option>
+                                        <select class="form-select" id="courseReportType">
+                                            <option value="enrollment">Enrollment Report</option>
+                                            <option value="grade_distribution">Grade Distribution</option>
+                                            <option value="performance">Performance Analysis</option>
                                         </select>
                                     </div>
-                                    <button class="btn btn-success">Generate Report</button>
+                                    <button class="btn btn-success" id="generateCourseReportBtn">Generate Report</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Report Types -->
+                    <div class="row">
+                        <div class="col-lg-6 mb-4">
+                            <div class="card shadow">
+                                <div class="card-header">
+                                    <h6 class="m-0 font-weight-bold text-primary">Department Reports</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Select Department</label>
+                                        <select class="form-select" id="departmentReportSelect">
+                                            <option value="">Choose department...</option>
+                                            <option value="Computer Science">Computer Science</option>
+                                            <option value="Mass Communication">Mass Communication</option>
+                                            <option value="Business Administration">Business Administration</option>
+                                            <option value="Accountancy">Accountancy</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Report Type</label>
+                                        <select class="form-select" id="departmentReportType">
+                                            <option value="enrollment_summary">Enrollment Summary</option>
+                                            <option value="performance_overview">Performance Overview</option>
+                                            <option value="grade_statistics">Grade Statistics</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn btn-info" id="generateDepartmentReportBtn">Generate Report</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 mb-4">
+                            <div class="card shadow">
+                                <div class="card-header">
+                                    <h6 class="m-0 font-weight-bold text-primary">System Reports</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Report Type</label>
+                                        <select class="form-select" id="systemReportType">
+                                            <option value="user_summary">User Summary</option>
+                                            <option value="course_summary">Course Summary</option>
+                                            <option value="grade_summary">Grade Summary</option>
+                                            <option value="activity_log">Activity Log</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Date Range (Optional)</label>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <input type="date" class="form-control" id="reportStartDate">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="date" class="form-control" id="reportEndDate">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-warning" id="generateSystemReportBtn">Generate Report</button>
                                 </div>
                             </div>
                         </div>
