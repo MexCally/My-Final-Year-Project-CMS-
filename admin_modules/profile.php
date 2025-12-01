@@ -61,6 +61,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES['profile_image'])) {
     }
 }
 
+// Handle profile information update (Edit Information button/modal)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
+    $phone_num = trim($_POST['phone_num'] ?? '');
+
+    if ($first_name === '' || $last_name === '') {
+        $error = 'First name and last name are required.';
+    } else {
+        $updateStmt = $pdo->prepare("UPDATE admintbl SET first_name = ?, last_name = ?, phone_num = ? WHERE email = ?");
+        if ($updateStmt->execute([$first_name, $last_name, $phone_num, $email])) {
+            $success = '✅ Profile information updated successfully!';
+            // update local copy so page shows new values immediately
+            $admin['first_name'] = $first_name;
+            $admin['last_name'] = $last_name;
+            $admin['phone_num'] = $phone_num;
+        } else {
+            $error = '⚠️ Failed to update profile information.';
+        }
+    }
+}
+
 // --- 3. FIX: Remove the explicit close() on $conn/PDO. ---
 // You were getting the error here (line 56). PDO connections generally stay open 
 // until the script ends, or you can use `unset($pdo);` if you absolutely must close it early.
@@ -422,6 +444,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES['profile_image'])) {
             </div>
 
             <div class="action-buttons">
+                <button class="btn btn-custom btn-primary-custom" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Information
+                </button>
                 <a href="change_password.php" class="btn btn-custom btn-warning-custom">
                     <i class="bi bi-key-fill me-2"></i>Change Password
                 </a>
@@ -439,6 +464,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES['profile_image'])) {
         document.getElementById('file-name').textContent = fileName;
     }
 </script>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Profile Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="update_profile" value="1">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">First Name</label>
+                        <input class="form-control" name="first_name" value="<?= htmlspecialchars($admin['first_name']); ?>" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Last Name</label>
+                        <input class="form-control" name="last_name" value="<?= htmlspecialchars($admin['last_name']); ?>" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <input class="form-control" name="phone_num" value="<?= htmlspecialchars($admin['phone_num'] ?? ''); ?>">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
