@@ -21,35 +21,48 @@ try {
     $stmt->execute();
     $courses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $courses = [];
+  $courses = [];
+  $db_error = $e->getMessage();
 }
 
+// Keep a count of courses fetched for debugging
+$courses_count = is_array($courses) ? count($courses) : 0;
+
 // Handle search
+// Default to all courses
 $search_results = $courses;
-if (isset($_POST['searchbtn']) && !empty($_POST['search_field'])) {
-    $search_term = '%' . $_POST['search_field'] . '%';
+
+// If the search form was submitted, run a search; if the search field is empty, keep all courses
+if (isset($_POST['searchbtn'])) {
+  $raw_search = trim($_POST['search_field'] ?? '');
+  if ($raw_search === '') {
+    // keep $search_results as all courses
+  } else {
+    $search_term = '%' . $raw_search . '%';
     try {
-        $stmt = $pdo->prepare("
-            SELECT 
-                c.course_id,
-                c.course_code,
-                c.course_title,
-                c.course_description,
-                c.course_unit,
-                c.department,
-                c.level,
-                c.semester,
-                CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
-            FROM coursetbl c
-            LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
-            WHERE c.course_code LIKE ? OR c.course_title LIKE ? OR c.department LIKE ?
-            ORDER BY c.course_code
-        ");
-        $stmt->execute([$search_term, $search_term, $search_term]);
-        $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      $stmt = $pdo->prepare(
+        "SELECT 
+          c.course_id,
+          c.course_code,
+          c.course_title,
+          c.course_description,
+          c.course_unit,
+          c.department,
+          c.level,
+          c.semester,
+          CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
+        FROM coursetbl c
+        LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
+        WHERE c.course_code LIKE ? OR c.course_title LIKE ? OR c.department LIKE ?
+        ORDER BY c.course_code"
+      );
+      $stmt->execute([$search_term, $search_term, $search_term]);
+      $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        $search_results = [];
+      $search_results = [];
+      $db_error = $e->getMessage();
     }
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -83,6 +96,28 @@ if (isset($_POST['searchbtn']) && !empty($_POST['search_field'])) {
   <link href="assets/css/main.css" rel="stylesheet">
   <link href="assets/css/course-cards.css" rel="stylesheet">
 
+  <style>
+    /* Small page-specific styles for the Search Courses subtitle */
+    .available-courses-subtitle {
+      text-align: center;
+      color: #6c757d;
+      font-size: 1.05rem;
+      font-weight: 500;
+      margin-top: 0.35rem;
+      margin-bottom: 1.25rem;
+      max-width: 820px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.45;
+      letter-spacing: 0.2px;
+    }
+
+    /* Make the subtitle slightly smaller on small screens */
+    @media (max-width: 576px) {
+      .available-courses-subtitle { font-size: 0.98rem; }
+    }
+  </style>
+
   <!-- =======================================================
   * Template Name: Sailor
   * Template URL: https://bootstrapmade.com/sailor-free-bootstrap-theme/
@@ -106,7 +141,7 @@ if (isset($_POST['searchbtn']) && !empty($_POST['search_field'])) {
       <nav id="navmenu" class="navmenu">
         <ul>
           <li><a href="index.html" class="active">Home</a></li>
-          <li><a href="searchcourse.html">Search Course</a></li>
+          <li><a href="searchcourse.php">Search Course</a></li>
           <li><a href="admin_register.html">Register</a></li>
           <li class="dropdown"><a href="#"><span>Login</span> <i class="bi bi-chevron-down toggle-dropdown"></i></a>
             <ul>
@@ -142,41 +177,22 @@ if (isset($_POST['searchbtn']) && !empty($_POST['search_field'])) {
         </div>
 
         <h2 class="available-courses-header">Available Courses</h2>
+        <p class="available-courses-subtitle">These are the courses we offer!</p>
 
-        <div class="row justify-content-center">
-          <div class="col-lg-8">
-
-            <form action="#" method="post" class="searchcourse-form" role="form" data-aos="fade-up" data-aos-delay="100">
-              <div class="row gy-4">
-                <div class="col-md-6">
-                  <input type="text" name="course-name" class="form-control" placeholder="Course Name" required>
-                </div>
-                <div class="col-md-6">
-                  <input type="text" name="course-code" class="form-control" placeholder="Course Code" required>
-                </div>
-                <div class="col-md-6">
-                  <input type="text" name="instructor" class="form-control" placeholder="Instructor Name">
-                </div>
-                <div class="col-md-6">
-                  <select name="semester" class="form-select">
-                    <option value="" disabled selected>Select Semester</option>
-                    <option value="fall">Fall</option>
-                    <option value="spring">Spring</option>
-                    <option value="summer">Summer</option>
-                  </select>
-                </div>
-                <div class="col-md-12 text-center">
-                  <button type="submit" class="btn btn-primary">Search Courses</button>
-                </div>
-              </div>
-            </form>
-
+        <?php if (isset($_GET['debug']) && $_GET['debug'] == '1'): ?>
+          <div class="alert alert-secondary mt-3" role="alert">
+            <strong>Debug Info</strong>
+            <ul class="mb-0 mt-2">
+              <li>Initial courses fetched: <?php echo (int)$courses_count; ?></li>
+              <li>Search results: <?php echo (int)count($search_results); ?></li>
+              <?php if (!empty($db_error)): ?>
+                <li>DB error: <code><?php echo htmlspecialchars($db_error); ?></code></li>
+              <?php endif; ?>
+            </ul>
           </div>
-        </div>
-
+        <?php endif; ?>
       </div>
-    </section>
-    </main> <!-- End Search Course Section -->
+  
 
     <!-- Dynamic Courses -->
     <div class="container mt-5">
@@ -214,7 +230,8 @@ if (isset($_POST['searchbtn']) && !empty($_POST['search_field'])) {
             <?php endif; ?>
         </div>
     </div>
-
+  </section>
+    </main> <!-- End Search Course Section -->
 
 
 
@@ -246,7 +263,7 @@ if (isset($_POST['searchbtn']) && !empty($_POST['search_field'])) {
             <li><a href="index.html">Home</a></li>
             <li><a href="#about">About us</a></li>
             <li><a href="contact.html">Contact</a></li>
-            <li><a href="searchcourse.html">Search Courses</a></li>
+            <li><a href="searchcourse.php">Search Courses</a></li>
             <li><a href="help.html">Help</a></li>
           </ul>
         </div>
