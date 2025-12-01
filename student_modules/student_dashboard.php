@@ -86,6 +86,21 @@ $deadlineStmt = $pdo->prepare("
 $deadlineStmt->execute([$student_id]);
 $upcoming_deadlines = $deadlineStmt->fetchAll();
 
+// Fetch pending assignments count
+$pendingAssignmentsStmt = $pdo->prepare("
+    SELECT COUNT(*) as pending_count
+    FROM assignmenttbl a
+    WHERE a.course_id IN (
+        SELECT course_id FROM course_regtbl WHERE student_id = ?
+    )
+    AND a.due_date >= CURDATE()
+    AND a.assignment_id NOT IN (
+        SELECT assignment_id FROM ass_subtbl WHERE student_id = ?
+    )
+");
+$pendingAssignmentsStmt->execute([$student_id, $student_id]);
+$pending_assignments_count = $pendingAssignmentsStmt->fetchColumn();
+
 // Fetch results for this student (uses resulttbl structure)
 $resultStmt = $pdo->prepare("
     SELECT 
@@ -508,7 +523,7 @@ $progress_percentages = [
                             </div> -->
                             <div class="col-md-3">
                                 <div class="stat-card" style="background: linear-gradient(135deg, var(--accent-color), #ec7063);">
-                                    <h3>4</h3>
+                                    <h3><?php echo (int)$pending_assignments_count; ?></h3>
                                     <p class="mb-0">Pending Assignments</p>
                                 </div>
                             </div>
@@ -695,8 +710,8 @@ $progress_percentages = [
                                                     </div>
                                                 </div>
                                                 <div class="d-flex gap-2">
-                                                    <button class="btn btn-primary btn-custom btn-sm" type="button">View Materials</button>
-                                                    <button class="btn btn-outline-primary btn-sm" type="button">Assignments</button>
+                                                    <button class="btn btn-primary btn-custom btn-sm" type="button" onclick="viewMaterials(<?php echo $course['course_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>')">View Materials</button>
+                                                    <button class="btn btn-outline-primary btn-sm" type="button" onclick="viewAssignments(<?php echo $course['course_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>')">Assignments</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -1186,7 +1201,7 @@ $progress_percentages = [
                     </div>
 
                     <!-- Course Selection Section -->
-                    <div id="course-selection" class="content-section" style="display: none;">
+                    <!-- <div id="course-selection" class="content-section" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2 class="text-primary fw-bold">Course Selection</h2>
                             <div class="d-flex gap-2">
@@ -1394,15 +1409,101 @@ $progress_percentages = [
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div> -->
 
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Materials Modal -->
+    <div class="modal fade" id="materialsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-book me-2"></i>Course Materials</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="materialsContent">
+                        <!-- Content loaded via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignments Modal -->
+    <div class="modal fade" id="assignmentsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-tasks me-2"></i>Course Assignments</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="assignmentsContent">
+                        <!-- Content loaded via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment Submission Modal -->
+    <div class="modal fade" id="submissionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-upload me-2"></i>Submit Assignment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="submissionForm" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <input type="hidden" id="assignmentId" name="assignment_id">
+                        <div class="mb-3">
+                            <label class="form-label">Assignment Title</label>
+                            <input type="text" class="form-control" id="assignmentTitle" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="submissionFile" class="form-label">Upload File</label>
+                            <input type="file" class="form-control" id="submissionFile" name="submission_file" required>
+                            <div class="form-text">Accepted formats: PDF, DOC, DOCX, TXT (Max: 10MB)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="submissionComments" class="form-label">Comments (Optional)</label>
+                            <textarea class="form-control" id="submissionComments" name="comments" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Submit Assignment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/student_dashboard.js"></script>
+    <script>
+    // Client-side session verification: calls server endpoint and redirects if session invalid
+    (function(){
+        fetch('../PHP/check_session.php', { credentials: 'include' })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if (!data || !data.ok) {
+                    var role = data && data.user_role ? data.user_role : '';
+                    if (role === 'admin') window.location.href = '../authentications/admin_login.html';
+                    else if (role === 'lecturer') window.location.href = '../authentications/lecturer_login.html';
+                    else window.location.href = '../authentications/student_login.html';
+                }
+            }).catch(function(){
+                // On network error, force redirect to login
+                window.location.href = '../authentications/student_login.html';
+            });
+    })();
+    </script>
     <script>
     function viewMaterials(courseId, courseCode) {
         const modal = new bootstrap.Modal(document.getElementById('materialsModal'));
@@ -1500,7 +1601,7 @@ $progress_percentages = [
                                         </div>
                                         <div>
                                             ${!hasSubmission && !isOverdue ? 
-                                                `<button class="btn btn-sm btn-success" onclick="submitAssignment(${assignment.assignment_id}, '${assignment.title}')">
+                                                `<button class="btn btn-sm btn-success" onclick="submitAssignment(${assignment.assignment_id}, '${assignment.title}', ${courseId}, '${courseCode}')">
                                                     <i class="fas fa-upload me-1"></i>Submit
                                                 </button>` : 
                                                 hasSubmission ? 
@@ -1524,9 +1625,58 @@ $progress_percentages = [
             });
     }
     
-    function submitAssignment(assignmentId, title) {
-        alert(`Assignment submission functionality for "${title}" will be implemented next.`);
+    function submitAssignment(assignmentId, title, courseId, courseCode) {
+        const assignmentIdField = document.getElementById('assignmentId');
+        assignmentIdField.value = assignmentId;
+        assignmentIdField.dataset.courseId = courseId;
+        assignmentIdField.dataset.courseCode = courseCode;
+        document.getElementById('assignmentTitle').value = title;
+        
+        const modal = new bootstrap.Modal(document.getElementById('submissionModal'));
+        modal.show();
     }
+    
+    // Handle assignment submission
+    document.getElementById('submissionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+        
+        fetch('../PHP/submit_assignment.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Assignment submitted successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('submissionModal')).hide();
+                // Refresh assignments modal if open
+                const assignmentsModal = document.getElementById('assignmentsModal');
+                if (assignmentsModal.classList.contains('show')) {
+                    const courseId = document.getElementById('assignmentId').dataset.courseId;
+                    const courseCode = document.getElementById('assignmentId').dataset.courseCode;
+                    if (courseId && courseCode) {
+                        viewAssignments(courseId, courseCode);
+                    }
+                }
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error submitting assignment. Please try again.');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+    });}
     </script>
 </body>
 </html>

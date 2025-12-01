@@ -1323,6 +1323,24 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="../assets/js/lecturer_dashboard.js"></script>
     <script>
+    // Client-side session verification: calls server endpoint and redirects if session invalid
+    (function(){
+        fetch('../PHP/check_session.php', { credentials: 'include' })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if (!data || !data.ok) {
+                    var role = data && data.user_role ? data.user_role : '';
+                    if (role === 'admin') window.location.href = '../authentications/admin_login.html';
+                    else if (role === 'lecturer') window.location.href = '../authentications/lecturer_login.html';
+                    else window.location.href = '../authentications/student_login.html';
+                }
+            }).catch(function(){
+                // On network error, force redirect to login
+                window.location.href = '../authentications/lecturer_login.html';
+            });
+    })();
+    </script>
+    <script>
         // Initialize performance chart
         let performanceChart;
         function initPerformanceChart() {

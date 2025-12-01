@@ -1332,6 +1332,24 @@ $admin_email = $_SESSION['admin_email'] ?? '';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/admin_dashboard.js"></script>
+    <script>
+    // Client-side session verification: calls server endpoint and redirects if session invalid
+    (function(){
+        fetch('../PHP/check_session.php', { credentials: 'include' })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if (!data || !data.ok) {
+                    var role = data && data.user_role ? data.user_role : '';
+                    if (role === 'admin') window.location.href = '../authentications/admin_login.html';
+                    else if (role === 'lecturer') window.location.href = '../authentications/lecturer_login.html';
+                    else window.location.href = '../authentications/student_login.html';
+                }
+            }).catch(function(){
+                // On network error, force redirect to login
+                window.location.href = '../authentications/admin_login.html';
+            });
+    })();
+    </script>
 
 </body>
 </html>
