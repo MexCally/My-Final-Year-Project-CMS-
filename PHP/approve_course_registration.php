@@ -1,0 +1,43 @@
+<?php
+session_start();
+require_once '../config/db.php';
+
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['admin_id'])) {
+    echo json_encode(['success' => false, 'errors' => ['Unauthorized access.']]);
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $student_id = $_POST['student_id'] ?? '';
+    $academic_year = $_POST['academic_year'] ?? '';
+    $semester = $_POST['semester'] ?? '';
+    $comments = $_POST['comments'] ?? '';
+
+    if (empty($student_id) || empty($academic_year) || empty($semester)) {
+        echo json_encode(['success' => false, 'errors' => ['Missing required parameters.']]);
+        exit();
+    }
+
+    try {
+        // Update course registration status to approved
+        $stmt = $pdo->prepare("UPDATE course_regtbl SET approval_status = 'approved', approved_by = ?, approval_date = NOW(), approval_comments = ? WHERE student_id = ? AND academic_year = ? AND semester = ?");
+        $stmt->execute([$_SESSION['admin_id'], $comments, $student_id, $academic_year, $semester]);
+
+        if ($stmt->rowCount() > 0) {
+            // Log the activity
+            $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
+            $activity_stmt->execute(['approve_course_registration', "Approved course registration for student ID: $student_id", $_SESSION['admin_id'], 'admin']);
+
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'errors' => ['No registration found to approve.']]);
+        }
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'errors' => ['Database error: ' . $e->getMessage()]]);
+    }
+} else {
+    echo json_encode(['success' => false, 'errors' => ['Invalid request method.']]);
+}
+?>

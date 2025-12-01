@@ -24,6 +24,7 @@ try {
     $phone_num = trim($_POST['phone_num'] ?? '');
     $department = trim($_POST['department'] ?? '');
     $level = trim($_POST['level'] ?? '');
+    $academic_year = trim($_POST['academic_year'] ?? '');
     $gender = trim($_POST['gender'] ?? '');
 
     // Validation
@@ -65,6 +66,10 @@ try {
         $errors[] = 'Level is required';
     }
 
+    if (empty($academic_year)) {
+        $errors[] = 'Academic year is required';
+    }
+
     if (empty($gender)) {
         $errors[] = 'Gender is required';
     }
@@ -84,8 +89,8 @@ try {
     }
 
     // Update student
-    $stmt = $pdo->prepare("UPDATE studenttbl SET first_name = ?, last_name = ?, email = ?, Phone_Num = ?, Department = ?, Level = ?, Gender = ? WHERE student_id = ?");
-    $stmt->execute([$first_name, $last_name, $email, $phone_num, $department, $level, $gender, $student_id]);
+    $stmt = $pdo->prepare("UPDATE studenttbl SET first_name = ?, last_name = ?, email = ?, Phone_Num = ?, Department = ?, Level = ?, academic_year = ?, Gender = ? WHERE student_id = ?");
+    $stmt->execute([$first_name, $last_name, $email, $phone_num, $department, $level, $academic_year, $gender, $student_id]);
 
     // Log the activity
     $admin_id = $_SESSION['admin_id'];

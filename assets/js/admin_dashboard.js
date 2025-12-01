@@ -561,6 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("editStudentPhone").value = student.Phone_Num || ''
         document.getElementById("editStudentProgram").value = student.Department
         document.getElementById("editStudentYear").value = student.Level
+        document.getElementById("editStudentAcademicYear").value = student.academic_year || '2024/2025'
         document.getElementById("editStudentGender").value = student.Gender || 'Male'
         console.log("[v0] Student edit modal populated for:", studentId)
       } else {
@@ -748,10 +749,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const phone = document.getElementById("editStudentPhone").value
     const department = document.getElementById("editStudentProgram").value
     const level = document.getElementById("editStudentYear").value
+    const academicYear = document.getElementById("editStudentAcademicYear").value
     const gender = document.getElementById("editStudentGender").value
 
     // Basic client-side validation
-    if (!firstName || !lastName || !email || !department || !level || !gender) {
+    if (!firstName || !lastName || !email || !department || !level || !academicYear || !gender) {
       alert("Please fill in all required fields")
       return
     }
@@ -769,6 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
     formData.append('phone_num', phone)
     formData.append('department', department)
     formData.append('level', level)
+    formData.append('academic_year', academicYear)
     formData.append('gender', gender)
 
     console.log("[v0] Saving student changes:", studentId)
@@ -1020,17 +1023,21 @@ fetch('../PHP/edit_student.php', {
   function approveRegistration() {
     const comments = document.getElementById("approveComments").value
     const studentId = currentRegistrationId
+    const academicYear = document.querySelector('.approve-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-academic-year')
+    const semester = document.querySelector('.approve-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-semester')
 
-    if (!studentId) {
-      alert("Error: Student ID is missing")
+    if (!studentId || !academicYear || !semester) {
+      alert("Error: Missing registration information")
       return
     }
 
     const formData = new FormData()
     formData.append('student_id', studentId)
+    formData.append('academic_year', academicYear)
+    formData.append('semester', semester)
     formData.append('comments', comments)
 
-    fetch('../PHP/approve_registration.php', {
+    fetch('../PHP/approve_course_registration.php', {
       method: 'POST',
       body: formData
     })
@@ -1061,23 +1068,27 @@ fetch('../PHP/edit_student.php', {
     const reason = document.getElementById("declineReason").value
     const detailedReason = document.getElementById("declineDetailedReason").value
     const studentId = currentRegistrationId
+    const academicYear = document.querySelector('.decline-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-academic-year')
+    const semester = document.querySelector('.decline-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-semester')
 
     if (!reason || !detailedReason.trim()) {
       alert("Please fill in both the reason and detailed explanation")
       return
     }
 
-    if (!studentId) {
-      alert("Error: Student ID is missing")
+    if (!studentId || !academicYear || !semester) {
+      alert("Error: Missing registration information")
       return
     }
 
     const formData = new FormData()
     formData.append('student_id', studentId)
+    formData.append('academic_year', academicYear)
+    formData.append('semester', semester)
     formData.append('reason', reason)
     formData.append('detailed_reason', detailedReason)
 
-    fetch('../PHP/decline_registration.php', {
+    fetch('../PHP/decline_course_registration.php', {
       method: 'POST',
       body: formData
     })
@@ -1329,20 +1340,21 @@ fetch('../PHP/delete_student.php', {
       const row = document.createElement('tr')
       const applicationDate = new Date(registration.application_date).toLocaleDateString()
       const fullName = `${registration.first_name} ${registration.last_name}`
+      const academicInfo = `${registration.academic_year || 'N/A'} - ${registration.semester || 'N/A'}`
       
       row.innerHTML = `
         <td class="text-center">${index + 1}</td>
-        <td>${fullName}</td>
+        <td>${fullName}<br><small class="text-muted">${registration.Matric_No}</small></td>
         <td>${registration.email || 'N/A'}</td>
-        <td>${registration.phone || 'N/A'}</td>
-        <td>${registration.department || 'N/A'}</td>
+        <td>${registration.reg_academic_year || registration.academic_year || '2024/2025'}<br><small class="text-muted">${registration.semester || 'N/A'}</small></td>
+        <td>${registration.department || 'N/A'}<br><small class="text-muted">${registration.Level}</small></td>
         <td>${applicationDate}</td>
-        <td><span class="badge bg-success">Registered</span></td>
+        <td><span class="badge bg-warning">Pending</span><br><small class="text-muted">${registration.course_count} courses</small></td>
         <td>
-          <button class="btn btn-sm btn-outline-success approve-registration-btn" data-student-id="${registration.student_id}" data-applicant-name="${fullName}">
+          <button class="btn btn-sm btn-outline-success approve-registration-btn" data-student-id="${registration.student_id}" data-applicant-name="${fullName}" data-academic-year="${registration.academic_year}" data-semester="${registration.semester}">
             <i class="fas fa-check"></i> Approve
           </button>
-          <button class="btn btn-sm btn-outline-danger decline-registration-btn" data-student-id="${registration.student_id}" data-applicant-name="${fullName}">
+          <button class="btn btn-sm btn-outline-danger decline-registration-btn" data-student-id="${registration.student_id}" data-applicant-name="${fullName}" data-academic-year="${registration.academic_year}" data-semester="${registration.semester}">
             <i class="fas fa-times"></i> Decline
           </button>
         </td>
@@ -1484,6 +1496,7 @@ fetch('../PHP/delete_student.php', {
       phone_num: formData.get('phone_num'),
       department: formData.get('department'),
       level: formData.get('level'),
+      academic_year: formData.get('academic_year'),
       gender: formData.get('gender'),
       password: formData.get('password')
     }
@@ -1499,7 +1512,7 @@ fetch('../PHP/delete_student.php', {
     // Basic client-side validation
     if (!studentData.matric_no || !studentData.first_name || !studentData.last_name ||
         !studentData.email || !studentData.phone_num || !studentData.department ||
-        !studentData.level || !studentData.gender || !studentData.password) {
+        !studentData.level || !studentData.academic_year || !studentData.gender || !studentData.password) {
       errorDiv.style.display = 'block'
       errorDiv.textContent = "Please fill in all required fields"
       return
@@ -1668,7 +1681,7 @@ fetch('../PHP/get_pending_grades.php')
     })
 
     // Re-attach event listeners for view, edit, and delete buttons
-    document.querySelectorAll(".view-student-btn").forEach((btn) => {
+    document.querySelectorAll("#studentsTableBody .view-student-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault()
         const studentId = btn.getAttribute("data-student-id")
@@ -1676,7 +1689,7 @@ fetch('../PHP/get_pending_grades.php')
       })
     })
 
-    document.querySelectorAll(".edit-student-btn").forEach((btn) => {
+    document.querySelectorAll("#studentsTableBody .edit-student-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault()
         const studentId = btn.getAttribute("data-student-id")
@@ -1684,7 +1697,7 @@ fetch('../PHP/get_pending_grades.php')
       })
     })
 
-    document.querySelectorAll(".delete-student-btn").forEach((btn) => {
+    document.querySelectorAll("#studentsTableBody .delete-student-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault()
         const studentId = btn.getAttribute("data-student-id")

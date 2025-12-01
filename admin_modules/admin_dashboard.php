@@ -643,8 +643,8 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                 <div class="container-fluid">
                     <div class="row mb-4">
                         <div class="col">
-                            <h2 class="text-primary">Pending Student Registrations</h2>
-                            <p class="text-muted">Review and approve or decline new student registrations</p>
+                            <h2 class="text-primary">Pending Course Registrations</h2>
+                            <p class="text-muted">Review and approve or decline student course registrations</p>
                         </div>
                     </div>
 
@@ -653,7 +653,7 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                         <div class="col-md-4 mb-3">
                             <div class="card border-left-warning shadow">
                                 <div class="card-body">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Approvals</div>
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Course Registrations</div>
                                     <div class="h5 mb-0 font-weight-bold text-gray-800" id="pendingApprovalsCount">Loading...</div>
                                 </div>
                             </div>
@@ -689,7 +689,7 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                             <th>S/N</th>
                                             <th>Name</th>
                                             <th>Email</th>
-                                            <th>Phone</th>
+                                            <th>Academic Year</th>
                                             <th>Program</th>
                                             <th>Application Date</th>
                                             <th>Status</th>
@@ -761,6 +761,15 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                     <option value="ND 2">ND 2</option>
                                 </select>
                             </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Academic Year *</label>
+                            <select class="form-select" id="academic_year" name="academic_year" required>
+                                <option value="">Select Academic Year</option>
+                                <option value="2023/2024">2023/2024</option>
+                                <option value="2024/2025">2024/2025</option>
+                                <option value="2025/2026">2025/2026</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Gender *</label>
@@ -969,6 +978,15 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                             <select class="form-select" id="editStudentYear">
                                 <option value="ND 1">ND 1</option>
                                 <option value="ND 2">ND 2</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Academic Year</label>
+                            <select class="form-select" id="editStudentAcademicYear">
+                                <option value="2023/2024">2023/2024</option>
+                                <option value="2024/2025">2024/2025</option>
+                                <option value="2025/2026">2025/2026</option>
+                                <option value="2026/2027">2026/2027</option>
                             </select>
                         </div>
                         <div class="mb-3">

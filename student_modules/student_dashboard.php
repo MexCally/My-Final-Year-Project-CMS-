@@ -11,7 +11,7 @@ if (!isset($_SESSION['student_id'])) {
 $student_id = $_SESSION['student_id'];
 
 // Fetch logged-in student details
-$stmt = $pdo->prepare("SELECT student_id, Matric_No, first_name, last_name, email, Department, Level 
+$stmt = $pdo->prepare("SELECT student_id, Matric_No, first_name, last_name, email, Department, Level, academic_year 
                        FROM studenttbl 
                        WHERE student_id = ?");
 $stmt->execute([$student_id]);
@@ -101,17 +101,8 @@ $resultStmt = $pdo->prepare("
 $resultStmt->execute([$student_id]);
 $results = $resultStmt->fetchAll();
 
-// Get current academic year for this student (latest from results)
-$academicYearStmt = $pdo->prepare("
-    SELECT academic_year 
-    FROM resulttbl 
-    WHERE student_id = ? AND academic_year IS NOT NULL AND academic_year != '' 
-    ORDER BY created_at DESC 
-    LIMIT 1
-");
-$academicYearStmt->execute([$student_id]);
-$academicYearRow = $academicYearStmt->fetch();
-$current_academic_year = $academicYearRow['academic_year'] ?? null;
+// Get current academic year for this student from their record
+$current_academic_year = $student['academic_year'] ?? null;
 
 // Load recent activities for this student
 $activityStmt = $pdo->prepare("

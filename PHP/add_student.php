@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone_num = htmlspecialchars(trim($_POST['phone_num']));
     $department = htmlspecialchars(trim($_POST['department']));
     $level = htmlspecialchars(trim($_POST['level']));
+    $academic_year = htmlspecialchars(trim($_POST['academic_year']));
     $gender = htmlspecialchars(trim($_POST['gender']));
     $password = $_POST['password'];
 
@@ -47,6 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($level)) {
         $errors[] = "Level is required.";
     }
+    if (empty($academic_year)) {
+        $errors[] = "Academic year is required.";
+    }
     if (empty($gender) || !in_array($gender, ['Male', 'Female'])) {
         $errors[] = "Valid gender is required.";
     }
@@ -71,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO studenttbl (AdminID, Matric_No, first_name, last_name, email, Phone_Num, password, Department, Level, Gender, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$_SESSION['admin_id'], $matric_no, $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $level, $gender]);
+            $stmt = $pdo->prepare("INSERT INTO studenttbl (AdminID, Matric_No, first_name, last_name, email, Phone_Num, password, Department, Level, academic_year, Gender, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+            $stmt->execute([$_SESSION['admin_id'], $matric_no, $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $level, $academic_year, $gender]);
 
             // Log the activity
             $student_id = $pdo->lastInsertId();

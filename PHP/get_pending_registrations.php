@@ -4,26 +4,26 @@ require_once '../config/db.php';
 header('Content-Type: application/json');
 
 try {
-    // Get pending student registrations (students with status = 'pending' or similar)
-    // Assuming we add a status field to studenttbl or create a separate pending_registrations table
-    
-    // For now, let's assume all students are "approved" and we'll show recent registrations
-    // You may need to modify this based on your actual database structure
-    
+    // Get pending course registrations from students grouped by semester
     $stmt = $pdo->query("SELECT 
-        student_id,
-        Matric_No,
-        first_name,
-        last_name,
-        email,
-        Phone_Num as phone,
-        Department as department,
-        Level,
-        Gender,
-        created_at as application_date
-    FROM studenttbl 
-    ORDER BY created_at DESC 
-    LIMIT 50");
+        s.student_id,
+        s.Matric_No,
+        s.first_name,
+        s.last_name,
+        s.email,
+        s.Phone_Num as phone,
+        s.Department as department,
+        s.Level,
+        COALESCE(cr.academic_year, '2024/2025') as academic_year,
+        cr.semester,
+        MIN(cr.date_registered) as application_date,
+        cr.approval_status,
+        COUNT(cr.course_id) as course_count
+    FROM course_regtbl cr
+    JOIN studenttbl s ON cr.student_id = s.student_id
+    WHERE cr.approval_status = 'pending' OR cr.approval_status IS NULL
+    GROUP BY cr.student_id, cr.academic_year, cr.semester
+    ORDER BY MIN(cr.date_registered) DESC");
     
     $registrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

@@ -14,20 +14,30 @@ $stmt = $pdo->prepare("SELECT Department, Level FROM studenttbl WHERE student_id
 $stmt->execute([$student_id]);
 $student = $stmt->fetch();
 
-// Check existing registration for current semester
-$currentSemester = 'Fall 2024';
+// Get current academic year
 $currentYear = '2024/2025';
 
-$existingRegStmt = $pdo->prepare("SELECT approval_status FROM course_regtbl WHERE student_id = ? AND semester = ? AND academic_year = ? LIMIT 1");
-$existingRegStmt->execute([$student_id, $currentSemester, $currentYear]);
-$registrationStatus = $existingRegStmt->fetchColumn();
-$existingRegistration = $registrationStatus !== false;
+// Initialize variables
+$selectedSemester = $_POST['semester'] ?? '';
+$existingRegistration = false;
+$registrationStatus = false;
+
+// Check existing registration if semester is selected
+if ($selectedSemester) {
+    $existingRegStmt = $pdo->prepare("SELECT approval_status FROM course_regtbl WHERE student_id = ? AND semester = ? AND academic_year = ? LIMIT 1");
+    $existingRegStmt->execute([$student_id, $selectedSemester, $currentYear]);
+    $registrationStatus = $existingRegStmt->fetchColumn();
+    $existingRegistration = $registrationStatus !== false;
+}
 
 // Handle course registration submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_registration'])) {
     $selected_courses = $_POST['courses'] ?? [];
+    $selectedSemester = $_POST['semester'] ?? '';
     
-    if (count($selected_courses) < 5) {
+    if (empty($selectedSemester)) {
+        $error = "Please select a semester for registration.";
+    } elseif (count($selected_courses) < 5) {
         $error = "You must select at least 5 courses for registration.";
     } elseif ($existingRegistration) {
         $error = "You have already submitted a registration for this semester.";
@@ -35,18 +45,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_registration']
         $success_count = 0;
         foreach ($selected_courses as $course_id) {
             try {
+                // Log the data being processed
+                error_log("Processing course registration - Student ID: $student_id, Course ID: $course_id, Semester: $selectedSemester, Year: $currentYear");
+                
                 // Check if already registered for this specific course
                 $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM course_regtbl WHERE student_id = ? AND course_id = ? AND semester = ? AND academic_year = ?");
-                $checkStmt->execute([$student_id, $course_id, $currentSemester, $currentYear]);
+                $checkStmt->execute([$student_id, $course_id, $selectedSemester, $currentYear]);
                 
                 if ($checkStmt->fetchColumn() == 0) {
-                    $regStmt = $pdo->prepare("INSERT IGNORE INTO course_regtbl (student_id, course_id, academic_year, semester, date_registered) VALUES (?, ?, ?, ?, NOW())");
-                    if ($regStmt->execute([$student_id, $course_id, $currentYear, $currentSemester])) {
+                    $regStmt = $pdo->prepare("INSERT INTO course_regtbl (student_id, course_id, academic_year, semester, date_registered, approval_status) VALUES (?, ?, ?, ?, NOW(), 'pending')");
+                    $result = $regStmt->execute([$student_id, $course_id, $currentYear, $selectedSemester]);
+                    
+                    if ($result) {
                         $success_count++;
+                        error_log("Successfully inserted course registration - Course ID: $course_id");
+                    } else {
+                        error_log("Failed to insert course registration - Course ID: $course_id, Error: " . implode(', ', $regStmt->errorInfo()));
                     }
+                } else {
+                    error_log("Course already registered - Course ID: $course_id");
                 }
             } catch (PDOException $e) {
-                // Skip duplicate entries silently
+                error_log("PDO Exception in course registration - Course ID: $course_id, Error: " . $e->getMessage());
                 continue;
             }
         }
@@ -54,8 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_registration']
         if ($success_count > 0) {
             $success = "Successfully registered for $success_count course(s)!";
             $existingRegistration = true;
+            error_log("Course registration completed - Total courses registered: $success_count");
         } else {
             $error = "Failed to register courses. Please try again.";
+            error_log("Course registration failed - No courses were registered");
         }
     }
 }
@@ -81,10 +103,13 @@ $courseStmt = $pdo->prepare("
 $courseStmt->execute();
 $courses = $courseStmt->fetchAll();
 
-// Fetch already registered courses for this student
-$enrolledStmt = $pdo->prepare("SELECT course_id FROM course_regtbl WHERE student_id = ? AND semester = ? AND academic_year = ?");
-$enrolledStmt->execute([$student_id, $currentSemester, $currentYear]);
-$enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
+// Fetch already registered courses for this student (if semester selected)
+$enrolled_courses = [];
+if ($selectedSemester) {
+    $enrolledStmt = $pdo->prepare("SELECT course_id FROM course_regtbl WHERE student_id = ? AND semester = ? AND academic_year = ?");
+    $enrolledStmt->execute([$student_id, $selectedSemester, $currentYear]);
+    $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -201,9 +226,19 @@ $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
                     <?php endif; ?>
                 <?php endif; ?>
 
+                <form method="POST">
                 <div class="filter-section">
                     <div class="row">
                         <div class="col-md-3">
+                            <label class="form-label fw-bold text-danger">Semester *</label>
+                            <select class="form-select" name="semester" id="semesterSelect" required onchange="this.form.submit()">
+                                <option value="">Select Semester</option>
+                                <option value="First Semester" <?php echo $selectedSemester === 'First Semester' ? 'selected' : ''; ?>>First Semester</option>
+                                <option value="Second Semester" <?php echo $selectedSemester === 'Second Semester' ? 'selected' : ''; ?>>Second Semester</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Department</label>
                             <select class="form-select" id="departmentFilter">
                                 <option value="">All Departments</option>
                                 <?php
@@ -213,26 +248,35 @@ $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Level</label>
                             <select class="form-select" id="levelFilter">
                                 <option value="">All Levels</option>
                                 <option value="ND 1">ND 1</option>
                                 <option value="ND 2">ND 2</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" id="searchFilter" placeholder="Search courses, lecturers, departments...">
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" class="form-control" id="searchFilter" placeholder="Search courses...">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
                             <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">Clear</button>
                         </div>
                     </div>
                 </div>
 
-                <form method="POST">
+                    <!-- Semester already captured above -->
                     <div class="row">
                         <div class="col-lg-8">
-                            <h4 class="mb-3">Available Courses</h4>
+                            <?php if (!$selectedSemester): ?>
+                                <div class="alert alert-info text-center">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Please select a semester to submit your registration after course selection
+                                </div>
+                            <?php endif; ?>
+                            <h4 class="mb-3">Available Courses<?php echo $selectedSemester ? ' - ' . htmlspecialchars($selectedSemester) : ''; ?></h4>
                             <div id="coursesList">
                                 <?php foreach ($courses as $course): ?>
                                     <?php 
@@ -327,11 +371,15 @@ $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
             const selectedDiv = document.getElementById('selectedCourses');
             const totalUnitsSpan = document.getElementById('totalUnits');
             const submitBtn = document.getElementById('submitBtn');
+            const semesterSelect = document.getElementById('semesterSelect');
             
             if (checkboxes.length === 0) {
                 selectedDiv.innerHTML = '<p class="text-muted text-center">No courses selected</p>';
                 totalUnitsSpan.textContent = '0';
-                if (submitBtn) submitBtn.disabled = true;
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Registration (Min 5 courses)';
+                }
                 return;
             }
             
@@ -355,12 +403,18 @@ $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
             selectedDiv.innerHTML = html;
             totalUnitsSpan.textContent = totalUnits;
             
-            // Enable/disable submit button based on minimum 5 courses
+            // Enable/disable submit button based on minimum 5 courses and semester selection
             if (submitBtn) {
-                submitBtn.disabled = checkboxes.length < 5;
-                submitBtn.innerHTML = checkboxes.length < 5 ? 
-                    '<i class="bi bi-send me-2"></i>Submit Registration (Min 5 courses)' :
-                    '<i class="bi bi-send me-2"></i>Submit Registration (' + checkboxes.length + ' courses)';
+                const hasMinCourses = checkboxes.length >= 5;
+                const hasSemester = semesterSelect && semesterSelect.value;
+                
+                submitBtn.disabled = !hasMinCourses;
+                
+                if (checkboxes.length < 5) {
+                    submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Registration (Min 5 courses)';
+                } else {
+                    submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Registration (' + checkboxes.length + ' courses)';
+                }
             }
         }
         
@@ -370,6 +424,8 @@ $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
                 e.target.closest('.course-item').classList.toggle('selected', e.target.checked);
             }
         });
+        
+
         
         // Filters
         function filterCourses() {
