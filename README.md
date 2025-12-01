@@ -201,7 +201,7 @@ This project is open-source and free to modify for educational purposes.
 
 ## 👤 **Developer**
 
-**Olisa Emeka Callistus**
+**NAME:** **Olisa Emeka Callistus**
 
 **Final Year Project** – Course Management System(**CMS**)
 
