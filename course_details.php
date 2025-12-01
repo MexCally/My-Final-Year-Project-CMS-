@@ -1,123 +1,72 @@
 <?php
-// Get course ID from URL parameter
-$course_id = isset($_GET['id']) ? (int)$_GET['id'] : 1;
+require_once 'config/db.php';
 
-// Simulate database queries
-function getCourseById($id) {
-    // Simulate course data from database
-    $course_codes = ['CS301', 'MTH201', 'PHY301', 'ENG101', 'BIO201'];
-    $departments = ['Computer Science', 'Mathematics', 'Physics', 'English', 'Biology'];
-    $levels = ['100', '200', '300', '400'];
-    $semesters = ['Fall 2024', 'Spring 2024', 'Summer 2024'];
-    
-    $course_code = $course_codes[($id - 1) % count($course_codes)];
-    $dept = $departments[($id - 1) % count($departments)];
-    $level = $levels[($id - 1) % count($levels)] . ' Level';
-    
-    return [
-        'id' => $id,
-        'course_code' => $course_code,
-        'course_title' => generateCourseTitle($course_code),
-        'course_description' => generateDescription($dept),
-        'department' => $dept,
-        'level' => $level,
-        'course_unit' => rand(2, 4) . ' Units',
-        'semester' => $semesters[($id - 1) % count($semesters)],
-        'lecturer_id' => ($id - 1) % 5 + 1
-    ];
+// Get course ID from URL parameter and validate
+$course_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($course_id <= 0) {
+  header('Location: searchcourse.php');
+  exit();
 }
 
-function getLecturerById($id) {
-    $lecturers = [
-        1 => ['name' => 'Dr. Sarah Johnson', 'email' => 'sarah.johnson@university.edu', 'office' => 'CS Building, Room 205'],
-        2 => ['name' => 'Prof. Michael Chen', 'email' => 'michael.chen@university.edu', 'office' => 'Math Building, Room 301'],
-        3 => ['name' => 'Dr. Emily Rodriguez', 'email' => 'emily.rodriguez@university.edu', 'office' => 'Physics Lab, Room 405'],
-        4 => ['name' => 'Prof. James Wilson', 'email' => 'james.wilson@university.edu', 'office' => 'English Dept, Room 102'],
-        5 => ['name' => 'Dr. Lisa Thompson', 'email' => 'lisa.thompson@university.edu', 'office' => 'Biology Lab, Room 501']
-    ];
-    return $lecturers[$id] ?? $lecturers[1];
+try {
+  $stmt = $pdo->prepare(
+    "SELECT 
+      c.course_id,
+      c.course_code,
+      c.course_title,
+      c.course_description,
+      c.course_unit,
+      c.department,
+      c.level,
+      c.semester,
+      c.lecturer_id,
+      CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name,
+      l.Email AS lecturer_email,
+      COALESCE(l.office, l.Office, '') AS lecturer_office
+    FROM coursetbl c
+    LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
+    WHERE c.course_id = ?");
+  $stmt->execute([$course_id]);
+  $course = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if (!$course) {
+    // Course not found
+    header('Location: searchcourse.php');
+    exit();
+  }
+
+  // Optional: fetch number of enrolled students
+  try {
+    $countStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM course_regtbl WHERE course_id = ? AND approval_status = 'Approved'");
+    $countStmt->execute([$course_id]);
+    $enrolledCount = (int)$countStmt->fetchColumn();
+  } catch (Exception $e) {
+    $enrolledCount = 0;
+  }
+
+// Optional: fetch course materials/resources (if table exists)
+try {
+  $matStmt = $pdo->prepare("SELECT material_id, title, description, file_path_url, file_type, created_at FROM course_materialtbl WHERE course_id = ? ORDER BY created_at DESC");
+  $matStmt->execute([$course_id]);
+  $materials = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+  $materials = [];
 }
 
-function generateCourseTitle($code) {
-    $titles = [
-        'CS301' => 'Advanced Web Development',
-        'MTH201' => 'Calculus II',
-        'PHY301' => 'Quantum Physics',
-        'ENG101' => 'English Composition',
-        'BIO201' => 'Cell Biology'
-    ];
-    return $titles[$code] ?? 'Course Title';
+// Optional: fetch course outline if available
+try {
+  $outlineStmt = $pdo->prepare("SELECT week, topic FROM course_outlinetbl WHERE course_id = ? ORDER BY week ASC");
+  $outlineStmt->execute([$course_id]);
+  $course_outline = $outlineStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+  $course_outline = [];
 }
 
-function generateDescription($dept) {
-    $descriptions = [
-        'Computer Science' => 'Advanced programming concepts and software development methodologies.',
-        'Mathematics' => 'Mathematical theories and problem-solving techniques.',
-        'Physics' => 'Fundamental principles of physics and their applications.',
-        'English' => 'Writing skills and literary analysis techniques.',
-        'Biology' => 'Biological processes and life sciences fundamentals.'
-    ];
-    return $descriptions[$dept] ?? 'Course description not available.';
+} catch (PDOException $e) {
+  // On DB error redirect to search
+  header('Location: searchcourse.php');
+  exit();
 }
-
-function generateCourseData($course) {
-    $topics = [
-        'CS301' => ['Web Frameworks', 'Frontend Development', 'Backend APIs', 'Database Integration'],
-        'MTH201' => ['Integration Techniques', 'Series and Sequences', 'Multivariable Calculus'],
-        'PHY301' => ['Quantum Mechanics', 'Wave Functions', 'Particle Physics'],
-        'ENG101' => ['Essay Writing', 'Grammar', 'Literature Analysis'],
-        'BIO201' => ['Cell Structure', 'Metabolism', 'Genetics']
-    ];
-    
-    $course_topics = $topics[$course['course_code']] ?? ['Topic 1', 'Topic 2', 'Topic 3'];
-    
-    $course['learning_outcomes'] = array_map(function($topic) {
-        return 'Understand and apply ' . strtolower($topic) . ' concepts';
-    }, $course_topics);
-    
-    $course['course_outline'] = [];
-    foreach($course_topics as $i => $topic) {
-        $course['course_outline'][] = ['week' => $i + 1, 'topic' => $topic];
-    }
-    
-    $course['assessment'] = [
-        ['type' => 'Assignments', 'percentage' => '30%'],
-        ['type' => 'Mid-term Exam', 'percentage' => '25%'],
-        ['type' => 'Final Exam', 'percentage' => '35%'],
-        ['type' => 'Participation', 'percentage' => '10%']
-    ];
-    
-    $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    $times = ['9:00 AM - 11:00 AM', '11:00 AM - 1:00 PM', '2:00 PM - 4:00 PM'];
-    $locations = ['Room 101', 'Lab 3', 'Lecture Hall A', 'Library'];
-    
-    $course['schedule'] = [
-        ['day' => $days[($course['id'] - 1) % count($days)], 
-         'time' => $times[($course['id'] - 1) % count($times)], 
-         'location' => $locations[($course['id'] - 1) % count($locations)]]
-    ];
-    
-    $course['resources'] = [
-        'Textbook: ' . $course['course_title'] . ' by Academic Press',
-        'Online Resources: University Learning Portal'
-    ];
-    
-    $course['prerequisites'] = $course['level'] === '100 Level' ? [] : [
-        'Previous level course in ' . $course['department']
-    ];
-    
-    return $course;
-}
-
-// Get course and lecturer data
-$course = getCourseById($course_id);
-$lecturer = getLecturerById($course['lecturer_id']);
-$course = generateCourseData($course);
-
-// Merge lecturer data into course
-$course['lecturer_name'] = $lecturer['name'];
-$course['lecturer_email'] = $lecturer['email'];
-$course['lecturer_office'] = $lecturer['office'];
 ?>
 
 <!DOCTYPE html>
@@ -389,7 +338,7 @@ $course['lecturer_office'] = $lecturer['office'];
                 <div>Weeks</div>
               </div>
               <div class="stat-item">
-                <div class="stat-number"><?php echo rand(15 + ($course_id * 5), 25 + ($course_id * 10)); ?></div>
+                <div class="stat-number"><?php echo htmlspecialchars($enrolledCount); ?></div>
                 <div>Students</div>
               </div>
             </div>
@@ -405,47 +354,88 @@ $course['lecturer_office'] = $lecturer['office'];
           <!-- Main Content -->
           <div class="col-lg-8">
             
-            <!-- Learning Outcomes -->
+            <!-- Learning Outcomes (if available) -->
             <div class="detail-card" data-aos="fade-up">
               <h3><i class="bi bi-target me-2"></i>Learning Outcomes</h3>
-              <p class="mb-4">By the end of this course, students will be able to:</p>
-              <?php foreach ($course['learning_outcomes'] as $outcome): ?>
-                <div class="outcome-item">
-                  <i class="bi bi-check-circle-fill text-success me-2"></i>
-                  <?php echo htmlspecialchars($outcome); ?>
-                </div>
-              <?php endforeach; ?>
+              <?php if (!empty($course['learning_outcomes'])): ?>
+                <p class="mb-4">By the end of this course, students will be able to:</p>
+                <?php
+                  // If stored as JSON in DB, decode; otherwise if it's an array, iterate
+                  $outcomes = [];
+                  if (is_string($course['learning_outcomes'])) {
+                      $decoded = json_decode($course['learning_outcomes'], true);
+                      if (is_array($decoded)) $outcomes = $decoded;
+                  } elseif (is_array($course['learning_outcomes'])) {
+                      $outcomes = $course['learning_outcomes'];
+                  }
+                ?>
+                <?php if (!empty($outcomes)): ?>
+                  <?php foreach ($outcomes as $outcome): ?>
+                    <div class="outcome-item">
+                      <i class="bi bi-check-circle-fill text-success me-2"></i>
+                      <?php echo htmlspecialchars($outcome); ?>
+                    </div>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <p class="text-muted">Learning outcomes not provided.</p>
+                <?php endif; ?>
+              <?php else: ?>
+                <p class="text-muted">Learning outcomes not provided.</p>
+              <?php endif; ?>
             </div>
 
             <!-- Course Outline -->
             <div class="detail-card" data-aos="fade-up" data-aos-delay="100">
               <h3><i class="bi bi-list-ol me-2"></i>Course Outline</h3>
               <div class="row">
-                <?php foreach ($course['course_outline'] as $topic): ?>
-                  <div class="col-md-6 mb-3">
-                    <div class="topic-item">
-                      <strong>Week <?php echo $topic['week']; ?>:</strong><br>
-                      <?php echo htmlspecialchars($topic['topic']); ?>
+                <?php if (!empty($course_outline)): ?>
+                  <?php foreach ($course_outline as $topic): ?>
+                    <div class="col-md-6 mb-3">
+                      <div class="topic-item">
+                        <strong>Week <?php echo htmlspecialchars($topic['week']); ?>:</strong><br>
+                        <?php echo htmlspecialchars($topic['topic']); ?>
+                      </div>
                     </div>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <div class="col-12">
+                    <p class="text-muted">Course outline not available.</p>
                   </div>
-                <?php endforeach; ?>
+                <?php endif; ?>
               </div>
             </div>
 
-            <!-- Assessment -->
+            <!-- Assessment (if available) -->
             <div class="detail-card" data-aos="fade-up" data-aos-delay="200">
               <h3><i class="bi bi-clipboard-check me-2"></i>Assessment Breakdown</h3>
               <div class="assessment-grid">
-                <?php foreach ($course['assessment'] as $assessment): ?>
-                  <div class="assessment-item">
-                    <h5><?php echo htmlspecialchars($assessment['type']); ?></h5>
-                    <div class="h4 mb-0"><?php echo htmlspecialchars($assessment['percentage']); ?></div>
-                  </div>
-                <?php endforeach; ?>
+                <?php if (!empty($course['assessment'])): ?>
+                  <?php
+                    $assess = [];
+                    if (is_string($course['assessment'])) {
+                        $decodedA = json_decode($course['assessment'], true);
+                        if (is_array($decodedA)) $assess = $decodedA;
+                    } elseif (is_array($course['assessment'])) {
+                        $assess = $course['assessment'];
+                    }
+                  ?>
+                  <?php if (!empty($assess)): ?>
+                    <?php foreach ($assess as $assessment): ?>
+                      <div class="assessment-item">
+                        <h5><?php echo htmlspecialchars($assessment['type']); ?></h5>
+                        <div class="h4 mb-0"><?php echo htmlspecialchars($assessment['percentage']); ?></div>
+                      </div>
+                    <?php endforeach; ?>
+                  <?php else: ?>
+                    <div class="col-12"><p class="text-muted">Assessment breakdown not provided.</p></div>
+                  <?php endif; ?>
+                <?php else: ?>
+                  <div class="col-12"><p class="text-muted">Assessment breakdown not provided.</p></div>
+                <?php endif; ?>
               </div>
             </div>
 
-            <!-- Schedule -->
+            <!-- Schedule (if available) -->
             <div class="detail-card" data-aos="fade-up" data-aos-delay="300">
               <h3><i class="bi bi-calendar-week me-2"></i>Class Schedule</h3>
               <div class="table-responsive">
@@ -458,13 +448,9 @@ $course['lecturer_office'] = $lecturer['office'];
                     </tr>
                   </thead>
                   <tbody>
-                    <?php foreach ($course['schedule'] as $class): ?>
-                      <tr>
-                        <td><strong><?php echo htmlspecialchars($class['day']); ?></strong></td>
-                        <td><?php echo htmlspecialchars($class['time']); ?></td>
-                        <td><?php echo htmlspecialchars($class['location']); ?></td>
-                      </tr>
-                    <?php endforeach; ?>
+                    <tr>
+                      <td colspan="3"><p class="text-muted">Class schedule not available.</p></td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -543,15 +529,31 @@ $course['lecturer_office'] = $lecturer['office'];
             <!-- Prerequisites -->
             <div class="detail-card" data-aos="fade-up" data-aos-delay="200">
               <h3><i class="bi bi-list-check me-2"></i>Prerequisites</h3>
-              <?php if (!empty($course['prerequisites'])): ?>
-                <?php foreach ($course['prerequisites'] as $prereq): ?>
+              <?php
+                $prereqs = [];
+                if (!empty($course['prerequisites'])) {
+                    if (is_string($course['prerequisites'])) {
+                        // try JSON
+                        $decodedP = json_decode($course['prerequisites'], true);
+                        if (is_array($decodedP)) $prereqs = $decodedP;
+                        else {
+                            // try comma-separated
+                            $prereqs = array_filter(array_map('trim', explode(',', $course['prerequisites'])));
+                        }
+                    } elseif (is_array($course['prerequisites'])) {
+                        $prereqs = $course['prerequisites'];
+                    }
+                }
+              ?>
+              <?php if (!empty($prereqs)): ?>
+                <?php foreach ($prereqs as $prereq): ?>
                   <div class="outcome-item">
                     <i class="bi bi-arrow-right-circle-fill text-primary me-2"></i>
                     <?php echo htmlspecialchars($prereq); ?>
                   </div>
                 <?php endforeach; ?>
               <?php else: ?>
-                <p class="text-muted">No prerequisites required</p>
+                <p class="text-muted">No prerequisites specified</p>
               <?php endif; ?>
             </div>
 

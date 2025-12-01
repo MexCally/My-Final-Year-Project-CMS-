@@ -35,34 +35,57 @@ $search_results = $courses;
 // If the search form was submitted, run a search; if the search field is empty, keep all courses
 if (isset($_POST['searchbtn'])) {
   $raw_search = trim($_POST['search_field'] ?? '');
-  if ($raw_search === '') {
-    // keep $search_results as all courses
-  } else {
-    $search_term = '%' . $raw_search . '%';
-    try {
-      $stmt = $pdo->prepare(
-        "SELECT 
-          c.course_id,
-          c.course_code,
-          c.course_title,
-          c.course_description,
-          c.course_unit,
-          c.department,
-          c.level,
-          c.semester,
-          CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
-        FROM coursetbl c
-        LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
-        WHERE c.course_code LIKE ? OR c.course_title LIKE ? OR c.department LIKE ?
-        ORDER BY c.course_code"
-      );
-      $stmt->execute([$search_term, $search_term, $search_term]);
-      $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-      $search_results = [];
-      $db_error = $e->getMessage();
+    if ($raw_search === '') {
+        // keep $search_results as all courses
+    } else {
+        // Search across multiple fields including lecturer name and description
+        $search_term = '%' . $raw_search . '%';
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT 
+                    c.course_id,
+                    c.course_code,
+                    c.course_title,
+                    c.course_description,
+                    c.course_unit,
+                    c.department,
+                    c.level,
+                    c.semester,
+                    CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
+                FROM coursetbl c
+                LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
+                WHERE (
+                    c.course_code LIKE ? OR
+                    c.course_title LIKE ? OR
+                    c.course_description LIKE ? OR
+                    c.department LIKE ? OR
+                    c.level LIKE ? OR
+                    c.course_unit LIKE ? OR
+                    CONCAT(l.First_name, ' ', l.Last_Name) LIKE ? OR
+                    l.First_name LIKE ? OR
+                    l.Last_Name LIKE ?
+                )
+                ORDER BY c.course_code"
+            );
+
+            // Bind the search term for all placeholders
+            $stmt->execute([
+                $search_term,
+                $search_term,
+                $search_term,
+                $search_term,
+                $search_term,
+                $search_term,
+                $search_term,
+                $search_term,
+                $search_term
+            ]);
+            $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $search_results = [];
+            $db_error = $e->getMessage();
+        }
     }
-  }
 }
 ?>
 <!DOCTYPE html>
@@ -222,7 +245,7 @@ if (isset($_POST['searchbtn'])) {
                                 <p class="course-teacher">
                                     Teacher: <span><?php echo htmlspecialchars($course['lecturer_name'] ?? 'Not Assigned'); ?></span>
                                 </p>
-                                <a href="course_details.php" class="read-more-btn">Read More</a>
+                                <a href="course_details.php?id=<?php echo urlencode($course['course_id']); ?>" class="read-more-btn">Read More</a>
                             </div>
                         </div>
                     </div>
