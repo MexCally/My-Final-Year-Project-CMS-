@@ -38,6 +38,7 @@ $student_initials = strtoupper($firstInitial . $lastInitial);
 // Fetch enrolled courses for this student
 $courseStmt = $pdo->prepare("
     SELECT 
+        c.course_id,
         c.course_code,
         c.course_title,
         c.course_unit,
@@ -45,10 +46,10 @@ $courseStmt = $pdo->prepare("
         c.level,
         c.semester,
         CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name
-    FROM enrollmenttbl e
-    JOIN coursetbl c ON e.course_id = c.course_id
+    FROM course_regtbl cr
+    JOIN coursetbl c ON cr.course_id = c.course_id
     LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
-    WHERE e.student_id = ?
+    WHERE cr.student_id = ?
     ORDER BY c.course_code
 ");
 $courseStmt->execute([$student_id]);
@@ -70,7 +71,7 @@ $deadlineStmt = $pdo->prepare("
     JOIN coursetbl c ON d.course_id = c.course_id
     LEFT JOIN lecturertbl l ON d.lecturer_id = l.LecturerID
     WHERE d.course_id IN (
-        SELECT course_id FROM enrollmenttbl WHERE student_id = ?
+        SELECT course_id FROM course_regtbl WHERE student_id = ?
     )
     AND d.deadline_date >= CURDATE()
     ORDER BY d.deadline_date ASC
@@ -641,8 +642,8 @@ $progress_percentages = [
                                                     </span>
                                                 </div>
                                                 <div class="d-flex gap-2">
-                                                    <button class="btn btn-primary btn-custom btn-sm" type="button">View Materials</button>
-                                                    <button class="btn btn-outline-primary btn-sm" type="button">Assignments</button>
+                                                    <button class="btn btn-primary btn-custom btn-sm view-materials" data-course-id="<?php echo htmlspecialchars($course['course_id'] ?? ''); ?>" data-course-code="<?php echo htmlspecialchars($course['course_code']); ?>" type="button">View Materials</button>
+                                                    <button class="btn btn-outline-primary btn-sm view-assignments" data-course-id="<?php echo htmlspecialchars($course['course_id'] ?? ''); ?>" data-course-code="<?php echo htmlspecialchars($course['course_code']); ?>" type="button">Assignments</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -1340,6 +1341,48 @@ $progress_percentages = [
                         </div>
                     </div>
 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Materials Modal -->
+    <div class="modal fade" id="materialsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Course Materials</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="materialsContent">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignments Modal -->
+    <div class="modal fade" id="assignmentsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Course Assignments</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="assignmentsContent">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
