@@ -35,20 +35,22 @@ $firstInitial = mb_substr($student['first_name'], 0, 1, 'UTF-8');
 $lastInitial  = mb_substr($student['last_name'], 0, 1, 'UTF-8');
 $student_initials = strtoupper($firstInitial . $lastInitial);
 
-// Fetch enrolled courses for this student
+// Fetch registered courses for this student (approved and pending)
 $courseStmt = $pdo->prepare("
     SELECT 
+        c.course_id,
         c.course_code,
         c.course_title,
         c.course_unit,
         c.department,
         c.level,
         c.semester,
+        cr.approval_status,
         CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name
-    FROM enrollmenttbl e
-    JOIN coursetbl c ON e.course_id = c.course_id
+    FROM course_regtbl cr
+    JOIN coursetbl c ON cr.course_id = c.course_id
     LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
-    WHERE e.student_id = ?
+    WHERE cr.student_id = ?
     ORDER BY c.course_code
 ");
 $courseStmt->execute([$student_id]);
@@ -617,6 +619,39 @@ $progress_percentages = [
                                 </ul>
                             </div>
                         </div>
+                        
+                        <?php 
+                        // Check if student has approved registrations
+                        $approvedCheckStmt = $pdo->prepare("SELECT COUNT(*) FROM course_regtbl WHERE student_id = ? AND approval_status = 'approved'");
+                        $approvedCheckStmt->execute([$student_id]);
+                        $hasApprovedRegistrations = $approvedCheckStmt->fetchColumn() > 0;
+                        
+                        if ($hasApprovedRegistrations): ?>
+                            <div class="alert alert-success mb-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Course Registration Approved!</strong>
+                                        <p class="mb-0">Your course registration has been approved. You can now download your registration form.</p>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-download me-2"></i>Download Form
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=pdf"><i class="fas fa-file-pdf me-2"></i>PDF</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=doc"><i class="fas fa-file-word me-2"></i>Word (DOC)</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=docx"><i class="fas fa-file-word me-2"></i>Word (DOCX)</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=xls"><i class="fas fa-file-excel me-2"></i>Excel (XLS)</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=xlsx"><i class="fas fa-file-excel me-2"></i>Excel (XLSX)</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=txt"><i class="fas fa-file-alt me-2"></i>Text</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=csv"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+                                            <li><a class="dropdown-item" href="../PHP/download_course_form.php?student_id=<?php echo $student_id; ?>&format=html"><i class="fas fa-file-code me-2"></i>HTML</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
 
                         <div class="row">
                             <?php if (!empty($enrolled_courses)): ?>
@@ -636,9 +671,19 @@ $progress_percentages = [
                                                             <?php echo htmlspecialchars($course['department'] . ' • Level ' . $course['level']); ?>
                                                         </small>
                                                     </div>
-                                                    <span class="badge grade-badge bg-secondary">
-                                                        <?php echo (int)($course['course_unit'] ?? 0); ?> Units
-                                                    </span>
+                                                    <div>
+                                                        <span class="badge grade-badge bg-secondary">
+                                                            <?php echo (int)($course['course_unit'] ?? 0); ?> Units
+                                                        </span>
+                                                        <br>
+                                                        <?php 
+                                                        $status = $course['approval_status'] ?? 'pending';
+                                                        $statusClass = $status === 'approved' ? 'bg-success' : ($status === 'declined' ? 'bg-danger' : 'bg-warning');
+                                                        ?>
+                                                        <span class="badge <?php echo $statusClass; ?> mt-1">
+                                                            <?php echo ucfirst($status); ?>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div class="d-flex gap-2">
                                                     <button class="btn btn-primary btn-custom btn-sm" type="button">View Materials</button>

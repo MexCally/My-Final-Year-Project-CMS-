@@ -2,34 +2,36 @@
 session_start();
 require_once '../config/db.php';
 
-// Check if lecturer is logged in
-if (!isset($_SESSION['lecturer_id'])) {
+// Check if admin or lecturer is logged in
+if (!isset($_SESSION['admin_id']) && !isset($_SESSION['lecturer_id'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Unauthorized access.']);
     exit();
 }
 
-$lecturer_id = $_SESSION['lecturer_id'];
-$course_id = $_GET['course_id'] ?? null;
+$course_code = $_GET['course_code'] ?? null;
 
-if (!$course_id) {
+if (!$course_code) {
     http_response_code(400);
-    echo json_encode(['error' => 'Course ID is required.']);
+    echo json_encode(['error' => 'Course code is required.']);
     exit();
 }
 
 try {
-    // Verify that this course belongs to the lecturer
-    $stmt = $pdo->prepare("SELECT course_id FROM coursetbl WHERE course_id = ? AND lecturer_id = ?");
-    $stmt->execute([$course_id, $lecturer_id]);
+    // Get course ID from course code
+    $stmt = $pdo->prepare("SELECT course_id FROM coursetbl WHERE course_code = ?");
+    $stmt->execute([$course_code]);
+    $course = $stmt->fetch();
     
-    if (!$stmt->fetch()) {
-        http_response_code(403);
-        echo json_encode(['error' => 'You do not have access to this course.']);
+    if (!$course) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Course not found.']);
         exit();
     }
     
-    // Get students enrolled in this course
+    $course_id = $course['course_id'];
+    
+    // Get students enrolled in this course via course registration
     $stmt = $pdo->prepare("SELECT 
         s.student_id,
         s.Matric_No,
@@ -39,10 +41,11 @@ try {
         s.Phone_Num,
         s.Department,
         s.Level,
-        e.enrollment_date
+        cr.date_registered as enrollment_date,
+        'Active' as status
     FROM studenttbl s
-    JOIN enrollmenttbl e ON s.student_id = e.student_id
-    WHERE e.course_id = ?
+    JOIN course_regtbl cr ON s.student_id = cr.student_id
+    WHERE cr.course_id = ? AND cr.approval_status = 'Approved'
     ORDER BY s.first_name, s.last_name");
     
     $stmt->execute([$course_id]);

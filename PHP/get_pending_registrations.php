@@ -15,7 +15,7 @@ try {
         s.Department as department,
         s.Level,
         COALESCE(cr.academic_year, '2024/2025') as academic_year,
-        cr.semester,
+        COALESCE(cr.semester, 'First') as semester,
         MIN(cr.date_registered) as application_date,
         cr.approval_status,
         COUNT(cr.course_id) as course_count

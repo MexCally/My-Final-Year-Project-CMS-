@@ -849,8 +849,8 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                 <label class="form-label">Semester *</label>
                                 <select class="form-select" id="course_semester" name="semester" required>
                                     <option value="">Select Semester</option>
-                                    <option value="First Semester">First Semester</option>
-                                    <option value="Second Semester">Second Semester</option>
+                                    <option value="First">First Semester</option>
+                                    <option value="Second">Second Semester</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -1060,8 +1060,8 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                 <label class="form-label">Semester *</label>
                                 <select class="form-select" id="editCourseSemester" name="semester" required>
                                     <option value="">Select Semester</option>
-                                    <option value="First Semester">First Semester</option>
-                                    <option value="Second Semester">Second Semester</option>
+                                    <option value="First">First Semester</option>
+                                    <option value="Second">Second Semester</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">

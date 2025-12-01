@@ -1023,11 +1023,12 @@ fetch('../PHP/edit_student.php', {
   function approveRegistration() {
     const comments = document.getElementById("approveComments").value
     const studentId = currentRegistrationId
-    const academicYear = document.querySelector('.approve-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-academic-year')
-    const semester = document.querySelector('.approve-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-semester')
+    const approveBtn = document.querySelector('.approve-registration-btn[data-student-id="' + studentId + '"]')
+    const academicYear = approveBtn?.getAttribute('data-academic-year') || '2024/2025'
+    const semester = approveBtn?.getAttribute('data-semester') || 'First'
 
-    if (!studentId || !academicYear || !semester) {
-      alert("Error: Missing registration information")
+    if (!studentId) {
+      alert("Error: Missing student information")
       return
     }
 
@@ -1068,16 +1069,17 @@ fetch('../PHP/edit_student.php', {
     const reason = document.getElementById("declineReason").value
     const detailedReason = document.getElementById("declineDetailedReason").value
     const studentId = currentRegistrationId
-    const academicYear = document.querySelector('.decline-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-academic-year')
-    const semester = document.querySelector('.decline-registration-btn[data-student-id="' + studentId + '"]')?.getAttribute('data-semester')
+    const declineBtn = document.querySelector('.decline-registration-btn[data-student-id="' + studentId + '"]')
+    const academicYear = declineBtn?.getAttribute('data-academic-year') || '2024/2025'
+    const semester = declineBtn?.getAttribute('data-semester') || 'First'
 
     if (!reason || !detailedReason.trim()) {
       alert("Please fill in both the reason and detailed explanation")
       return
     }
 
-    if (!studentId || !academicYear || !semester) {
-      alert("Error: Missing registration information")
+    if (!studentId) {
+      alert("Error: Missing student information")
       return
     }
 
@@ -1346,7 +1348,7 @@ fetch('../PHP/delete_student.php', {
         <td class="text-center">${index + 1}</td>
         <td>${fullName}<br><small class="text-muted">${registration.Matric_No}</small></td>
         <td>${registration.email || 'N/A'}</td>
-        <td>${registration.reg_academic_year || registration.academic_year || '2024/2025'}<br><small class="text-muted">${registration.semester || 'N/A'}</small></td>
+        <td>${registration.academic_year || '2024/2025'}<br><small class="text-muted">${registration.semester || 'First'}</small></td>
         <td>${registration.department || 'N/A'}<br><small class="text-muted">${registration.Level}</small></td>
         <td>${applicationDate}</td>
         <td><span class="badge bg-warning">Pending</span><br><small class="text-muted">${registration.course_count} courses</small></td>
@@ -1390,16 +1392,24 @@ fetch('../PHP/delete_student.php', {
       pendingCountEl.textContent = pendingCount
     }
 
-    // For approved today and total approved, we'd need separate queries
-    // For now, just show pending count
-    const approvedTodayEl = document.getElementById('approvedTodayCount')
-    if (approvedTodayEl) {
-      approvedTodayEl.textContent = '0' // TODO: Calculate from activity log
-    }
-    const totalApprovedEl = document.getElementById('totalApprovedCount')
-    if (totalApprovedEl) {
-      totalApprovedEl.textContent = '0' // TODO: Calculate from activity log
-    }
+    // Fetch approval stats
+    fetch('../PHP/get_approval_stats.php')
+    .then(response => response.json())
+    .then(statsData => {
+      if (statsData.success) {
+        const approvedTodayEl = document.getElementById('approvedTodayCount')
+        if (approvedTodayEl) {
+          approvedTodayEl.textContent = statsData.approved_today
+        }
+        const totalApprovedEl = document.getElementById('totalApprovedCount')
+        if (totalApprovedEl) {
+          totalApprovedEl.textContent = statsData.total_approved
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error loading approval stats:', error)
+    })
   }
   
   // Search functionality placeholder

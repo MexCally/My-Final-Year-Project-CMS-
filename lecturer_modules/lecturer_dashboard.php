@@ -19,7 +19,7 @@ if (!isset($_SESSION['lecturer_id'])) {
     exit();
 }
 
-$lecturer_id = $_SESSION['lecturer_id'];
+$lecturer_id = (int)$_SESSION['lecturer_id'];
 $lecturer_name = $_SESSION['lecturer_name'];
 
 // Get dashboard statistics
@@ -30,9 +30,9 @@ try {
     $total_courses = $stmt->fetch()['count'];
     
     // Total unique students enrolled in ALL of lecturer's courses
-    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT e.student_id) as count FROM enrollmenttbl e 
-                          JOIN coursetbl c ON e.course_id = c.course_id 
-                          WHERE c.lecturer_id = ?");
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cr.student_id) as count FROM course_regtbl cr 
+                          JOIN coursetbl c ON cr.course_id = c.course_id 
+                          WHERE c.lecturer_id = ? AND cr.approval_status = 'Approved'");
     $stmt->execute([$lecturer_id]);
     $total_students = $stmt->fetch()['count'];
     
@@ -295,9 +295,9 @@ try {
                             c.department,
                             c.level,
                             c.semester,
-                            COUNT(DISTINCT e.student_id) as enrolled_students
+                            COUNT(DISTINCT cr.student_id) as enrolled_students
                         FROM coursetbl c
-                        LEFT JOIN enrollmenttbl e ON c.course_id = e.course_id
+                        LEFT JOIN course_regtbl cr ON c.course_id = cr.course_id AND cr.approval_status = 'Approved'
                         WHERE c.lecturer_id = ?
                         GROUP BY c.course_id
                         ORDER BY c.course_code");
@@ -425,7 +425,7 @@ try {
                         $stmt = $pdo->prepare("
                             SELECT DISTINCT
                                 s.student_id,
-                                s.matric_number,
+                                s.Matric_No as matric_number,
                                 s.first_name,
                                 s.last_name,
                                 c.course_id,
@@ -441,11 +441,11 @@ try {
                                 e.quality_points,
                                 e.eval_id
                             FROM studenttbl s
-                            JOIN enrollmenttbl en ON s.student_id = en.student_id
-                            JOIN coursetbl c ON en.course_id = c.course_id
+                            JOIN course_regtbl cr ON s.student_id = cr.student_id
+                            JOIN coursetbl c ON cr.course_id = c.course_id
                             LEFT JOIN evaluationtbl e ON s.student_id = e.student_id AND c.course_id = e.course_id
-                            WHERE c.lecturer_id = ?
-                            ORDER BY c.course_code, s.matric_number
+                            WHERE c.lecturer_id = ? AND cr.approval_status = 'Approved'
+                            ORDER BY c.course_code, s.Matric_No
                         ");
                         $stmt->execute([$lecturer_id]);
                         $student_grades = $stmt->fetchAll(PDO::FETCH_ASSOC);

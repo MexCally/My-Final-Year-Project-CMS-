@@ -110,6 +110,31 @@ if ($selectedSemester) {
     $enrolledStmt->execute([$student_id, $selectedSemester, $currentYear]);
     $enrolled_courses = array_column($enrolledStmt->fetchAll(), 'course_id');
 }
+
+// Fetch approved courses for this student
+$approvedStmt = $pdo->prepare("SELECT course_id FROM course_regtbl WHERE student_id = ? AND approval_status = 'approved'");
+$approvedStmt->execute([$student_id]);
+$approved_course_ids = array_column($approvedStmt->fetchAll(), 'course_id');
+
+// Get approved courses details
+$approved_courses = [];
+if (!empty($approved_course_ids)) {
+    $placeholders = str_repeat('?,', count($approved_course_ids) - 1) . '?';
+    $approvedDetailsStmt = $pdo->prepare("SELECT 
+        c.course_code,
+        c.course_title,
+        c.course_unit,
+        c.department,
+        c.level,
+        c.semester,
+        CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name
+    FROM coursetbl c
+    LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
+    WHERE c.course_id IN ($placeholders)
+    ORDER BY c.course_code");
+    $approvedDetailsStmt->execute($approved_course_ids);
+    $approved_courses = $approvedDetailsStmt->fetchAll();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -270,6 +295,38 @@ if ($selectedSemester) {
                     <!-- Semester already captured above -->
                     <div class="row">
                         <div class="col-lg-8">
+                            <?php if (!empty($approved_courses)): ?>
+                                <div class="mb-4">
+                                    <h4 class="text-success mb-3"><i class="bi bi-check-circle me-2"></i>My Approved Courses</h4>
+                                    <?php foreach ($approved_courses as $course): ?>
+                                        <div class="course-item enrolled">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-1">
+                                                    <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                                </div>
+                                                <div class="col-md-11">
+                                                    <div class="row">
+                                                        <div class="col-md-8">
+                                                            <h6 class="mb-1 text-success"><?php echo htmlspecialchars($course['course_code']); ?></h6>
+                                                            <p class="mb-1 fw-bold"><?php echo htmlspecialchars($course['course_title']); ?></p>
+                                                            <small class="text-muted">
+                                                                <i class="bi bi-person me-1"></i><?php echo htmlspecialchars($course['lecturer_name'] ?? 'TBD'); ?> |
+                                                                <i class="bi bi-building me-1"></i><?php echo htmlspecialchars($course['department']); ?> |
+                                                                <i class="bi bi-layers me-1"></i>Level <?php echo htmlspecialchars($course['level']); ?>
+                                                            </small>
+                                                        </div>
+                                                        <div class="col-md-4 text-end">
+                                                            <span class="badge bg-success mb-2"><?php echo $course['course_unit']; ?> Units</span><br>
+                                                            <span class="badge bg-success">Approved</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                            
                             <?php if (!$selectedSemester): ?>
                                 <div class="alert alert-info text-center">
                                     <i class="bi bi-info-circle me-2"></i>
@@ -281,7 +338,11 @@ if ($selectedSemester) {
                                 <?php foreach ($courses as $course): ?>
                                     <?php 
                                     $isEnrolled = in_array($course['course_id'], $enrolled_courses);
+                                    $isApproved = in_array($course['course_id'], $approved_course_ids);
                                     $enrolledCount = $course['enrolled_count'] ?? 0;
+                                    
+                                    // Skip approved courses from the selection list
+                                    if ($isApproved) continue;
                                     ?>
                                     <div class="course-item <?php echo $isEnrolled ? 'enrolled' : ''; ?>" 
                                          data-department="<?php echo htmlspecialchars($course['department']); ?>"

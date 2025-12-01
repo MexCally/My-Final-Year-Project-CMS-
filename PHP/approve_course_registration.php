@@ -22,8 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         // Update course registration status to approved
-        $stmt = $pdo->prepare("UPDATE course_regtbl SET approval_status = 'approved', approved_by = ?, approval_date = NOW(), approval_comments = ? WHERE student_id = ? AND academic_year = ? AND semester = ?");
-        $stmt->execute([$_SESSION['admin_id'], $comments, $student_id, $academic_year, $semester]);
+        $stmt = $pdo->prepare("UPDATE course_regtbl SET approval_status = 'approved', approved_by = ?, date_approved = NOW() WHERE student_id = ? AND (approval_status = 'pending' OR approval_status IS NULL)");
+        $stmt->execute([$_SESSION['admin_id'], $student_id]);
 
         if ($stmt->rowCount() > 0) {
             // Log the activity

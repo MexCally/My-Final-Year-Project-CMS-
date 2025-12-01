@@ -75,17 +75,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            
+            // Debug: Log the data being inserted
+            error_log("Adding student with data: " . json_encode([
+                'admin_id' => $_SESSION['admin_id'],
+                'matric_no' => $matric_no,
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $email,
+                'phone_num' => $phone_num,
+                'department' => $department,
+                'level' => $level,
+                'academic_year' => $academic_year,
+                'gender' => $gender
+            ]));
+            
             $stmt = $pdo->prepare("INSERT INTO studenttbl (AdminID, Matric_No, first_name, last_name, email, Phone_Num, password, Department, Level, academic_year, Gender, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$_SESSION['admin_id'], $matric_no, $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $level, $academic_year, $gender]);
-
-            // Log the activity
-            $student_id = $pdo->lastInsertId();
-            $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
-            $activity_stmt->execute(['add_student', "Added new student: $first_name $last_name ($matric_no)", $_SESSION['admin_id'], 'admin']);
-
-            $success = true;
+            $result = $stmt->execute([$_SESSION['admin_id'], $matric_no, $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $level, $academic_year, $gender]);
+            
+            if (!$result) {
+                $errors[] = "Failed to execute insert statement: " . implode(', ', $stmt->errorInfo());
+            } else {
+                // Log the activity
+                $student_id = $pdo->lastInsertId();
+                try {
+                    $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
+                    $activity_stmt->execute(['add_student', "Added new student: $first_name $last_name ($matric_no)", $_SESSION['admin_id'], 'admin']);
+                } catch (PDOException $activity_error) {
+                    // Log activity error but don't fail the student creation
+                    error_log("Activity log error: " . $activity_error->getMessage());
+                }
+                $success = true;
+            }
         } catch (PDOException $e) {
-            $errors[] = "Failed to add student: " . $e->getMessage();
+            error_log("PDO Error in add_student.php: " . $e->getMessage());
+            $errors[] = "Database error: " . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General Error in add_student.php: " . $e->getMessage());
+            $errors[] = "Server error: " . $e->getMessage();
         }
     }
 

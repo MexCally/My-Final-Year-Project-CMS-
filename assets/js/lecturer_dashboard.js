@@ -10,6 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Load recent activities on dashboard load
   loadRecentActivities()
+  
+  // Refresh dashboard statistics
+  refreshDashboardStats()
 
   navLinks.forEach((link) => {
     link.addEventListener("click", function (e) {
@@ -548,7 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById('viewStudentsTitle').textContent = `${courseCode} - Enrolled Students`
       
       // Fetch students for this course
-      fetchCourseStudents(courseId)
+      fetchCourseStudents(courseCode)
     })
   })
 
@@ -915,7 +918,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Function to fetch course students
-  function fetchCourseStudents(courseId) {
+  function fetchCourseStudents(courseCode) {
     const container = document.getElementById('studentsTableContainer')
     
     // Show loading state
@@ -929,7 +932,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `
     
     // Fetch students from server
-    fetch(`../PHP/get_course_students.php?course_id=${courseId}`)
+    fetch(`../PHP/get_course_students.php?course_code=${courseCode}`)
       .then(response => response.json())
       .then(data => {
         if (data.error) {
@@ -942,7 +945,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return
         }
         
-        const students = data.students
+        const students = data.students || data
         
         if (students.length === 0) {
           container.innerHTML = `
@@ -1269,4 +1272,34 @@ function formatActivityTime(timestamp) {
   } else {
     return activityTime.toLocaleDateString()
   }
+}
+
+// Function to refresh dashboard statistics
+function refreshDashboardStats() {
+  fetch('../PHP/refresh_lecturer_stats.php')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Update the stats cards
+        const stats = data.stats
+        
+        // Update total courses
+        const totalCoursesElement = document.querySelector('.h5.mb-0.font-weight-bold.text-gray-800')
+        if (totalCoursesElement) {
+          totalCoursesElement.textContent = stats.total_courses
+        }
+        
+        // Update all stats cards
+        const statsCards = document.querySelectorAll('.h5.mb-0.font-weight-bold.text-gray-800')
+        if (statsCards.length >= 4) {
+          statsCards[0].textContent = stats.total_courses
+          statsCards[1].textContent = stats.total_students
+          statsCards[2].textContent = stats.pending_grades
+          statsCards[3].textContent = stats.assignments_due
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error refreshing stats:', error)
+    })
 }
