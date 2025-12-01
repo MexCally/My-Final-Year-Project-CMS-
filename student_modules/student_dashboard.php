@@ -72,7 +72,7 @@ $deadlineStmt = $pdo->prepare("
     JOIN coursetbl c ON d.course_id = c.course_id
     LEFT JOIN lecturertbl l ON d.lecturer_id = l.LecturerID
     WHERE d.course_id IN (
-        SELECT course_id FROM enrollmenttbl WHERE student_id = ?
+        SELECT course_id FROM course_regtbl WHERE student_id = ?
     )
     AND d.deadline_date >= CURDATE()
     ORDER BY d.deadline_date ASC
@@ -670,6 +670,8 @@ $progress_percentages = [
                                                         </p>
                                                         <small class="text-muted">
                                                             <?php echo htmlspecialchars($course['department'] . ' • Level ' . $course['level']); ?>
+                                                            <br>
+                                                            <small class="text-muted">Semester: <?php echo htmlspecialchars($course['semester'] ?? 'N/A'); ?></small>
                                                         </small>
                                                     </div>
                                                     <div>
@@ -688,8 +690,8 @@ $progress_percentages = [
                                                     </div>
                                                 </div>
                                                 <div class="d-flex gap-2">
-                                                    <button class="btn btn-primary btn-custom btn-sm" type="button" onclick="viewMaterials(<?php echo $course['course_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>')">View Materials</button>
-                                                    <button class="btn btn-outline-primary btn-sm" type="button" onclick="viewAssignments(<?php echo $course['course_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>')">Assignments</button>
+                                                    <button class="btn btn-primary btn-custom btn-sm" type="button">View Materials</button>
+                                                    <button class="btn btn-outline-primary btn-sm" type="button">Assignments</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -731,6 +733,7 @@ $progress_percentages = [
                                             <table class="table table-custom">
                                                 <thead>
                                                     <tr>
+                                                        <th>S/N</th>
                                                         <th>Course Code</th>
                                                         <th>Course Title</th>
                                                         <th>Credit Hours</th>
@@ -744,7 +747,7 @@ $progress_percentages = [
                                                 </thead>
                                                 <tbody>
                                                     <?php if (!empty($results)): ?>
-                                                        <?php foreach ($results as $row): ?>
+                                                        <?php $sn = 1; foreach ($results as $row): ?>
                                                             <?php
                                                                 $ca_score   = $row['ca_score']   ?? null;
                                                                 $test_score = $row['test_score'] ?? null;
@@ -792,6 +795,7 @@ $progress_percentages = [
                                                                 $gpa_points = $points !== null ? number_format($points, 1) : '-';
                                                             ?>
                                                             <tr>
+                                                                <td class="text-center"><?php echo $sn++; ?></td>
                                                                 <td class="fw-bold"><?php echo htmlspecialchars($row['course_code']); ?></td>
                                                                 <td><?php echo htmlspecialchars($row['course_title'] ?? ''); ?></td>
                                                                 <td><?php echo (int)$credits; ?></td>
@@ -1387,42 +1391,6 @@ $progress_percentages = [
                         </div>
                     </div>
 
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Materials Modal -->
-    <div class="modal fade" id="materialsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-book me-2"></i>Course Materials</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="materialsContent">
-                    <div class="text-center">
-                        <div class="spinner-border" role="status"></div>
-                        <p>Loading materials...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Assignments Modal -->
-    <div class="modal fade" id="assignmentsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-tasks me-2"></i>Course Assignments</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="assignmentsContent">
-                    <div class="text-center">
-                        <div class="spinner-border" role="status"></div>
-                        <p>Loading assignments...</p>
-                    </div>
                 </div>
             </div>
         </div>
