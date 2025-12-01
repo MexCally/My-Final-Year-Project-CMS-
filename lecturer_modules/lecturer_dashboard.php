@@ -1,16 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lecturer Dashboard - Academic Management System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="../assets/css/lecturer_dashboard.css" rel="stylesheet">
-</head>
-<body>
 <?php
 session_start();
+// Prevent caching so users can't view dashboard via browser back after logout
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: 0");
 require_once '../config/db.php';
 
 // Check if lecturer is logged in
@@ -19,8 +13,8 @@ if (!isset($_SESSION['lecturer_id'])) {
     exit();
 }
 
-$lecturer_id = (int)$_SESSION['lecturer_id'];
-$lecturer_name = $_SESSION['lecturer_name'];
+$lecturer_id = (int)($_SESSION['lecturer_id'] ?? 0);
+$lecturer_name = $_SESSION['lecturer_name'] ?? '';
 
 // Get dashboard statistics
 try {

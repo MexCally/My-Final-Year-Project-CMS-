@@ -251,7 +251,7 @@ if (isset($_POST['searchbtn'])) {
           </div>
           <div class="social-links d-flex mt-4">
             <a href="https://web.facebook.com/HighlandCollegeofTechnology"><i class="bi bi-facebook"></i></a>
-            <a href="Instagram.com/hctibadanng"><i class="bi bi-instagram"></i></a>
+            <a href="https://www.instagram.com/hctibadanng/" target="_blank" rel="noopener noreferrer"><i class="bi bi-instagram"></i></a>
           </div>
         </div>
 
