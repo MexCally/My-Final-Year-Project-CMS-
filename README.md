@@ -202,8 +202,11 @@ This project is open-source and free to modify for educational purposes.
 ## 👤 **Developer**
 
 **Olisa Emeka Callistus**
-Final Year Project – Course Management System(**CMS**)
-Contact: 07048508115 / 09051171814
-Email: [emekaolisa232@gmail.com](mailto:emekaolisa232@gmail.com)
+
+**Final Year Project** – Course Management System(**CMS**)
+
+**Contact:** 07048508115 / 09051171814
+
+**Email:** [emekaolisa232@gmail.com](mailto:emekaolisa232@gmail.com)
 
 ---
