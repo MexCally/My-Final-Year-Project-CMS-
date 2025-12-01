@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_registration']
                 $checkStmt->execute([$student_id, $course_id, $selectedSemester, $currentYear]);
                 
                 if ($checkStmt->fetchColumn() == 0) {
-                    $regStmt = $pdo->prepare("INSERT INTO course_regtbl (student_id, course_id, academic_year, semester, date_registered, approval_status) VALUES (?, ?, ?, ?, NOW(), 'pending')");
+                    $regStmt = $pdo->prepare("INSERT INTO course_regtbl (student_id, course_id, academic_year, semester, date_registered, approval_status) VALUES (?, ?, ?, ?, NOW(), 'Pending')");
                     $result = $regStmt->execute([$student_id, $course_id, $currentYear, $selectedSemester]);
                     
                     if ($result) {
@@ -112,7 +112,7 @@ if ($selectedSemester) {
 }
 
 // Fetch approved courses for this student
-$approvedStmt = $pdo->prepare("SELECT course_id FROM course_regtbl WHERE student_id = ? AND approval_status = 'approved'");
+$approvedStmt = $pdo->prepare("SELECT course_id FROM course_regtbl WHERE student_id = ? AND approval_status = 'Registered'");
 $approvedStmt->execute([$student_id]);
 $approved_course_ids = array_column($approvedStmt->fetchAll(), 'course_id');
 
@@ -230,12 +230,12 @@ if (!empty($approved_course_ids)) {
                 <?php endif; ?>
                 
                 <?php if ($existingRegistration): ?>
-                    <?php if ($registrationStatus === 'pending'): ?>
+                    <?php if ($registrationStatus === 'Pending'): ?>
                         <div class="alert alert-warning">
                             <i class="bi bi-clock me-2"></i>
                             Your course registration is pending admin approval. You will be able to download your form once approved.
                         </div>
-                    <?php elseif ($registrationStatus === 'approved'): ?>
+                    <?php elseif ($registrationStatus === 'Registered'): ?>
                         <div class="alert alert-success">
                             <i class="bi bi-check-circle me-2"></i>
                             Your course registration has been approved!
@@ -243,7 +243,7 @@ if (!empty($approved_course_ids)) {
                                 <i class="bi bi-download me-1"></i>Download Form
                             </a>
                         </div>
-                    <?php elseif ($registrationStatus === 'declined'): ?>
+                    <?php elseif ($registrationStatus === 'Dropped'): ?>
                         <div class="alert alert-danger">
                             <i class="bi bi-x-circle me-2"></i>
                             Your course registration was declined. Please contact the admin for more information.

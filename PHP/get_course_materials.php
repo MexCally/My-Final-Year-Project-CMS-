@@ -2,55 +2,58 @@
 session_start();
 require_once '../config/db.php';
 
-// Check if lecturer is logged in
-if (!isset($_SESSION['lecturer_id'])) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Unauthorized access.']);
-    exit();
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['student_id'])) {
+    echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+    exit;
 }
 
-$lecturer_id = $_SESSION['lecturer_id'];
+$student_id = $_SESSION['student_id'];
+$course_id = $_GET['course_id'] ?? '';
+
+if (empty($course_id)) {
+    echo json_encode(['success' => false, 'message' => 'Course ID required']);
+    exit;
+}
 
 try {
-    // Fetch materials for courses taught by this lecturer
-    $stmt = $pdo->prepare("SELECT 
-        cm.material_id,
-        cm.course_id,
-        cm.title,
-        cm.description,
-        cm.file_path_url,
-        cm.file_type,
-        cm.is_published,
-        cm.created_at,
-        cm.updated_at,
-        cm.uploaded_by_lecturer_id,
-        c.course_code,
-        c.course_title
-    FROM course_materialtbl cm
-    JOIN coursetbl c ON cm.course_id = c.course_id
-    WHERE cm.uploaded_by_lecturer_id = ?
-    ORDER BY c.course_code, cm.created_at DESC");
+    // Verify student is enrolled in this course
+    $enrollStmt = $pdo->prepare("SELECT COUNT(*) FROM course_regtbl WHERE student_id = ? AND course_id = ?");
+    $enrollStmt->execute([$student_id, $course_id]);
     
-    $stmt->execute([$lecturer_id]);
-    $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Group materials by course
-    $groupedMaterials = [];
-    foreach ($materials as $material) {
-        $courseKey = $material['course_code'];
-        if (!isset($groupedMaterials[$courseKey])) {
-            $groupedMaterials[$courseKey] = [
-                'course_id' => $material['course_id'],
-                'course_code' => $material['course_code'],
-                'course_title' => $material['course_title'],
-                'materials' => []
-            ];
-        }
-        $groupedMaterials[$courseKey]['materials'][] = $material;
+    if ($enrollStmt->fetchColumn() == 0) {
+        echo json_encode(['success' => false, 'message' => 'Not enrolled in this course']);
+        exit;
     }
-
-    echo json_encode($groupedMaterials);
-} catch (PDOException $e) {
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    
+    // Get course materials
+    $materialsStmt = $pdo->prepare("
+        SELECT 
+            m.material_id,
+            m.title,
+            m.description,
+            m.file_path_url,
+            m.file_type,
+            m.created_at,
+            c.course_code,
+            c.course_title,
+            CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name
+        FROM course_materialtbl m
+        JOIN coursetbl c ON m.course_id = c.course_id
+        LEFT JOIN lecturertbl l ON m.uploaded_by_lecturer_id = l.LecturerID
+        WHERE m.course_id = ?
+        ORDER BY m.created_at DESC
+    ");
+    $materialsStmt->execute([$course_id]);
+    $materials = $materialsStmt->fetchAll();
+    
+    echo json_encode([
+        'success' => true,
+        'materials' => $materials
+    ]);
+    
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>

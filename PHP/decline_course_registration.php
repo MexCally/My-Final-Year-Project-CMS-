@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         // Update course registration status to declined
-        $stmt = $pdo->prepare("UPDATE course_regtbl SET approval_status = 'declined', approved_by = ?, date_approved = NOW() WHERE student_id = ? AND (approval_status = 'pending' OR approval_status IS NULL)");
+        $stmt = $pdo->prepare("UPDATE course_regtbl SET approval_status = 'Dropped', approved_by = ?, date_approved = NOW() WHERE student_id = ? AND (approval_status = 'Pending' OR approval_status IS NULL)");
         $stmt->execute([$_SESSION['admin_id'], $student_id]);
 
         if ($stmt->rowCount() > 0) {

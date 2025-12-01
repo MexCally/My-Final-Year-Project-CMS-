@@ -9,19 +9,27 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 
+// Debug: Log admin_id
+error_log("Admin ID from session: " . $_SESSION['admin_id']);
+
 // Handle POST request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     $success = false;
 
+    // Debug: Log received POST data
+    error_log("Received POST data: " . print_r($_POST, true));
+
     // Sanitize inputs
-    $first_name = htmlspecialchars(trim($_POST['first_name']));
-    $last_name = htmlspecialchars(trim($_POST['last_name']));
-    $email = htmlspecialchars(trim($_POST['email']));
-    $phone_num = htmlspecialchars(trim($_POST['phone_num']));
-    $department = htmlspecialchars(trim($_POST['department']));
-    $gender = htmlspecialchars(trim($_POST['gender']));
-    $password = $_POST['password'];
+    $first_name = htmlspecialchars(trim($_POST['first_name'] ?? ''));
+    $last_name = htmlspecialchars(trim($_POST['last_name'] ?? ''));
+    $email = htmlspecialchars(trim($_POST['email'] ?? ''));
+    $phone_num = htmlspecialchars(trim($_POST['phone_num'] ?? ''));
+    $department = htmlspecialchars(trim($_POST['department'] ?? ''));
+    $gender = htmlspecialchars(trim($_POST['gender'] ?? ''));
+    $password = $_POST['password'] ?? '';
+    
+    error_log("Processed data - First: $first_name, Last: $last_name, Email: $email, Phone: $phone_num, Dept: $department, Gender: $gender");
 
     // Validation
     if (empty($first_name)) {
@@ -64,7 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("INSERT INTO lecturertbl (AdminID, First_name, Last_Name, Email, Phone_Num, Password, Department, Gender, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$_SESSION['admin_id'], $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $gender]);
+            $result = $stmt->execute([$_SESSION['admin_id'], $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $gender]);
+            
+            if (!$result) {
+                $errors[] = "Failed to insert lecturer into database.";
+            }
 
             // Log the activity
             $lecturer_id = $pdo->lastInsertId();
@@ -73,7 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $success = true;
         } catch (PDOException $e) {
-            $errors[] = "Failed to add lecturer: " . $e->getMessage();
+            error_log("Add lecturer error: " . $e->getMessage());
+            $errors[] = "Database error: " . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error adding lecturer: " . $e->getMessage());
+            $errors[] = "Error: " . $e->getMessage();
         }
     }
 

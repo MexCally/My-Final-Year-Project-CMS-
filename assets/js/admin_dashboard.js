@@ -2207,15 +2207,21 @@ fetch('../PHP/get_recent_activities.php')
       return
     }
 
+    console.log('Sending lecturer data:', Object.fromEntries(formData))
+    
     fetch('../PHP/add_lecturer.php', {
       method: 'POST',
       body: formData,
       credentials: 'include'
     })
     .then(response => {
+      console.log('Response status:', response.status)
       const contentType = response.headers.get("content-type") || "";
+      console.log('Content type:', contentType)
+      
       if (!contentType.includes("application/json")) {
         return response.text().then(text => {
+          console.error('Non-JSON response:', text)
           throw new Error("Unexpected server response: " + text);
         });
       }
@@ -2225,6 +2231,8 @@ fetch('../PHP/get_recent_activities.php')
       return response.json();
     })
     .then(data => {
+      console.log('Response data:', data)
+      
       if (data.success) {
         if (successDiv) {
           successDiv.style.display = 'block'
@@ -2240,6 +2248,7 @@ fetch('../PHP/get_recent_activities.php')
           if (modal) modal.hide()
         }, 3000)
       } else {
+        console.error('Server returned error:', data.errors)
         if (errorDiv) {
           errorDiv.style.display = 'block'
           errorDiv.textContent = data.errors ? data.errors.join(", ") : "Error adding lecturer."

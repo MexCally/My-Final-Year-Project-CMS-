@@ -16,7 +16,7 @@ try {
                           FROM course_regtbl cr 
                           JOIN studenttbl s ON cr.student_id = s.student_id 
                           JOIN coursetbl c ON cr.course_id = c.course_id 
-                          WHERE cr.student_id = ? AND cr.approval_status = 'approved'
+                          WHERE cr.student_id = ? AND cr.approval_status = 'Registered'
                           ORDER BY c.semester, c.course_code");
     $stmt->execute([$student_id]);
     $registrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -66,22 +66,36 @@ function generateHTML($registrations, $student) {
 }
 
 function generatePDF($registrations, $student) {
+    // For now, generate HTML that can be printed as PDF
     $html = generateFormHTML($registrations, $student);
     
-    // Simple PDF generation using HTML to PDF conversion
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="course_registration_' . $student['Matric_No'] . '.pdf"');
+    header('Content-Type: text/html');
+    header('Content-Disposition: inline; filename="course_registration_' . $student['Matric_No'] . '.html"');
     
-    // For basic PDF, we'll use HTML with print styles
-    echo "<!DOCTYPE html><html><head><style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .student-info { margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-        th { background-color: #f0f0f0; }
-        @media print { body { margin: 0; } }
-    </style></head><body>$html</body></html>";
+    echo "<!DOCTYPE html><html><head>
+    <title>Course Registration Form - " . $student['Matric_No'] . "</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 15px; }
+            .no-print { display: none; }
+            @page { size: A4; margin: 0.5in; }
+        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    </style>
+    <script>
+        window.onload = function() {
+            document.getElementById('printBtn').onclick = function() {
+                window.print();
+            };
+        };
+    </script>
+    </head><body>
+    <div class='no-print' style='text-align: center; margin-bottom: 20px;'>
+        <button id='printBtn' style='background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;'>Print as PDF</button>
+        <p style='font-size: 12px; color: #666;'>Click 'Print as PDF' and select 'Save as PDF' in the print dialog</p>
+    </div>
+    $html
+    </body></html>";
 }
 
 function generateDOC($registrations, $student) {
@@ -178,35 +192,171 @@ function generateCSV($registrations, $student) {
 }
 
 function generateFormHTML($registrations, $student) {
-    $html = '<div class="header">';
-    $html .= '<h2>COURSE REGISTRATION FORM</h2>';
-    $html .= '<p>Academic Year: ' . $student['academic_year'] . '</p>';
-    $html .= '</div>';
+    $totalUnits = array_sum(array_column($registrations, 'course_unit'));
+    $matric = str_split($student['Matric_No']);
     
-    $html .= '<div class="student-info">';
-    $html .= '<p><strong>Student Name:</strong> ' . $student['first_name'] . ' ' . $student['last_name'] . '</p>';
-    $html .= '<p><strong>Matric Number:</strong> ' . $student['Matric_No'] . '</p>';
-    $html .= '<p><strong>Department:</strong> ' . $student['Department'] . '</p>';
-    $html .= '<p><strong>Level:</strong> ' . $student['Level'] . '</p>';
-    $html .= '</div>';
+    $html = '
+    <div style="max-width: 800px; margin: 0 auto; padding: 10px; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.2;">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;"></div>
+                <div style="flex: 2; text-align: center;">
+                    <h2 style="margin: 0; font-size: 16px; font-weight: bold;">HIGHLAND COLLEGE OF TECHNOLOGY</h2>
+                    <p style="margin: 5px 0; font-size: 14px;">SAMONDA, IBADAN, NIGERIA</p>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <img src="../assets/img/logo1.png" alt="HCT Logo" style="width: 60px; height: 60px; border: 2px solid #000;">
+                </div>
+            </div>
+            <h3 style="margin: 20px 0 10px 0; font-size: 14px; font-weight: bold;">COURSE REGISTRATION FORM</h3>
+            <p style="margin: 0; font-size: 12px;">PLEASE COMPLETE THE FORM NEATLY</p>
+        </div>
+
+        <!-- Student Info Section -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; margin-bottom: 10px;">
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; font-weight: bold;">DEPARTMENT:</label>
+                    <div style="border-bottom: 1px solid #000; padding: 2px 5px; margin-top: 2px; min-height: 18px;">' . htmlspecialchars($student['Department']) . '</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; margin-bottom: 10px;">
+                <div style="flex: 1; margin-right: 20px;">
+                    <label style="font-size: 12px; font-weight: bold;">STUDENT REGISTRATION NUMBER/MATRIC NUMBER</label>
+                    <div style="display: flex; margin-top: 5px;">';
     
-    $html .= '<table>';
-    $html .= '<thead><tr><th>S/N</th><th>Course Code</th><th>Course Title</th><th>Units</th><th>Semester</th><th>Status</th></tr></thead>';
-    $html .= '<tbody>';
-    
-    foreach ($registrations as $index => $reg) {
-        $html .= '<tr>';
-        $html .= '<td>' . ($index + 1) . '</td>';
-        $html .= '<td>' . $reg['course_code'] . '</td>';
-        $html .= '<td>' . $reg['course_title'] . '</td>';
-        $html .= '<td>' . $reg['course_unit'] . '</td>';
-        $html .= '<td>' . $reg['course_semester'] . '</td>';
-        $html .= '<td><span style="color: green;">Approved</span></td>';
-        $html .= '</tr>';
+    // Matric number boxes
+    for ($i = 0; $i < 6; $i++) {
+        $char = isset($matric[$i]) ? $matric[$i] : '';
+        $html .= '<div style="width: 30px; height: 30px; border: 1px solid #000; margin-right: 2px; text-align: center; line-height: 28px; font-weight: bold;">' . $char . '</div>';
     }
     
-    $html .= '</tbody></table>';
-    $html .= '<p style="margin-top: 30px;"><strong>Date Generated:</strong> ' . date('Y-m-d H:i:s') . '</p>';
+    $html .= '
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; margin-bottom: 15px;">
+                <div style="flex: 1; margin-right: 20px;">
+                    <div style="display: flex; margin-bottom: 10px;">
+                        <div style="flex: 1; margin-right: 10px;">
+                            <label style="font-size: 12px; font-weight: bold;">SURNAME</label>
+                            <div style="border: 1px solid #000; padding: 5px; margin-top: 2px; min-height: 20px;">' . htmlspecialchars($student['last_name']) . '</div>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div>
+                                    <label style="font-size: 12px; font-weight: bold;">SEMESTER</label>
+                                    <div style="margin-top: 5px;">
+                                        <label style="font-size: 11px;">FIRST <input type="checkbox" ' . (strpos($registrations[0]['semester'] ?? '', 'First') !== false ? 'checked' : '') . ' style="margin-left: 5px;"></label>
+                                        <label style="font-size: 11px; margin-left: 15px;">SECOND <input type="checkbox" ' . (strpos($registrations[0]['semester'] ?? '', 'Second') !== false ? 'checked' : '') . ' style="margin-left: 5px;"></label>
+                                    </div>
+                                </div>
+                                <div style="margin-left: 20px;">
+                                    <label style="font-size: 12px; font-weight: bold;">BLOCK</label>
+                                    <div style="margin-top: 5px;">
+                                        <label style="font-size: 11px;">FIRST <input type="checkbox" style="margin-left: 5px;"></label>
+                                        <label style="font-size: 11px; margin-left: 15px;">SECOND <input type="checkbox" style="margin-left: 5px;"></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; font-weight: bold;">OTHER NAMES</label>
+                        <div style="border: 1px solid #000; padding: 5px; margin-top: 2px; min-height: 20px;">' . htmlspecialchars($student['first_name']) . '</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; margin-bottom: 20px;">
+                <div style="flex: 1; margin-right: 20px;">
+                    <label style="font-size: 12px; font-weight: bold;">LEVEL (ND1/ND2):</label>
+                    <div style="border-bottom: 1px solid #000; padding: 2px 5px; margin-top: 2px; min-height: 18px; display: inline-block; min-width: 200px;">' . htmlspecialchars($student['Level']) . '</div>
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; font-weight: bold;">SESSION:</label>
+                    <div style="border-bottom: 1px solid #000; padding: 2px 5px; margin-top: 2px; min-height: 18px; display: inline-block; min-width: 150px;">' . htmlspecialchars($student['academic_year']) . '</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Table -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #000; padding: 8px; font-size: 11px; font-weight: bold; text-align: center; background-color: #f0f0f0;">COURSE<br>CODE</th>
+                    <th style="border: 1px solid #000; padding: 8px; font-size: 11px; font-weight: bold; text-align: center; background-color: #f0f0f0;">COURSE TITLE</th>
+                    <th style="border: 1px solid #000; padding: 8px; font-size: 11px; font-weight: bold; text-align: center; background-color: #f0f0f0;">NO. OF<br>UNITS</th>
+                    <th style="border: 1px solid #000; padding: 8px; font-size: 11px; font-weight: bold; text-align: center; background-color: #f0f0f0;">STUDENT\'S<br>SIGNATURE</th>
+                    <th style="border: 1px solid #000; padding: 8px; font-size: 11px; font-weight: bold; text-align: center; background-color: #f0f0f0;">LECTURER\'S<br>SIGNATURE &<br>DATE</th>
+                </tr>
+            </thead>
+            <tbody>';
+    
+    // Course rows
+    foreach ($registrations as $reg) {
+        $html .= '
+                <tr>
+                    <td style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px;">' . htmlspecialchars($reg['course_code']) . '</td>
+                    <td style="border: 1px solid #000; padding: 4px; font-size: 10px;">' . htmlspecialchars($reg['course_title']) . '</td>
+                    <td style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px;">' . htmlspecialchars($reg['course_unit']) . '</td>
+                    <td style="border: 1px solid #000; padding: 4px; height: 25px;"></td>
+                    <td style="border: 1px solid #000; padding: 4px; height: 25px;"></td>
+                </tr>';
+    }
+    
+    // Empty rows to fill the form (reduced to fit one page)
+    for ($i = count($registrations); $i < 8; $i++) {
+        $html .= '
+                <tr>
+                    <td style="border: 1px solid #000; padding: 4px; height: 20px;"></td>
+                    <td style="border: 1px solid #000; padding: 4px; height: 20px;"></td>
+                    <td style="border: 1px solid #000; padding: 4px; height: 20px;"></td>
+                    <td style="border: 1px solid #000; padding: 4px; height: 20px;"></td>
+                    <td style="border: 1px solid #000; padding: 4px; height: 20px;"></td>
+                </tr>';
+    }
+    
+    $html .= '
+            </tbody>
+        </table>
+        
+        <!-- Total Units -->
+        <div style="text-align: center; margin-bottom: 20px;">
+            <strong style="font-size: 12px;">SEMESTER TOTAL UNITS = ' . $totalUnits . '</strong>
+        </div>
+        
+        <!-- Official Use Section -->
+        <div style="border: 2px solid #000; padding: 15px;">
+            <div style="font-size: 12px; font-weight: bold; margin-bottom: 15px;">FOR OFFICIAL USE:</div>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <span style="font-size: 11px;">BURSAR\'S SIGNATURE:</span>
+                    <div style="border-bottom: 1px solid #000; margin-top: 5px; height: 20px; width: 200px;"></div>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <span style="font-size: 11px;">DATE:</span>
+                    <div style="border-bottom: 1px solid #000; margin-top: 5px; height: 20px; width: 150px; display: inline-block;"></div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between;">
+                <div style="flex: 1;">
+                    <span style="font-size: 11px;">DEAN\'S SIGNATURE:</span>
+                    <div style="border-bottom: 1px solid #000; margin-top: 5px; height: 20px; width: 200px;"></div>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <span style="font-size: 11px;">DATE:</span>
+                    <div style="border-bottom: 1px solid #000; margin-top: 5px; height: 20px; width: 150px; display: inline-block;"></div>
+                </div>
+            </div>
+        </div>
+    </div>';
     
     return $html;
 }

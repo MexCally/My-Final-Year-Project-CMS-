@@ -622,9 +622,10 @@ $progress_percentages = [
                         
                         <?php 
                         // Check if student has approved registrations
-                        $approvedCheckStmt = $pdo->prepare("SELECT COUNT(*) FROM course_regtbl WHERE student_id = ? AND approval_status = 'approved'");
+                        $approvedCheckStmt = $pdo->prepare("SELECT COUNT(*) FROM course_regtbl WHERE student_id = ? AND approval_status = 'Registered'");
                         $approvedCheckStmt->execute([$student_id]);
-                        $hasApprovedRegistrations = $approvedCheckStmt->fetchColumn() > 0;
+                        $approvedCount = $approvedCheckStmt->fetchColumn();
+                        $hasApprovedRegistrations = $approvedCount > 0;
                         
                         if ($hasApprovedRegistrations): ?>
                             <div class="alert alert-success mb-4">
@@ -677,17 +678,18 @@ $progress_percentages = [
                                                         </span>
                                                         <br>
                                                         <?php 
-                                                        $status = $course['approval_status'] ?? 'pending';
-                                                        $statusClass = $status === 'approved' ? 'bg-success' : ($status === 'declined' ? 'bg-danger' : 'bg-warning');
+                                                        $status = $course['approval_status'] ?? 'Pending';
+                                                        $statusClass = $status === 'Registered' ? 'bg-success' : ($status === 'Dropped' ? 'bg-danger' : 'bg-warning');
+                                                        $displayStatus = $status === 'Registered' ? 'Approved' : $status;
                                                         ?>
                                                         <span class="badge <?php echo $statusClass; ?> mt-1">
-                                                            <?php echo ucfirst($status); ?>
+                                                            <?php echo htmlspecialchars($displayStatus); ?>
                                                         </span>
                                                     </div>
                                                 </div>
                                                 <div class="d-flex gap-2">
-                                                    <button class="btn btn-primary btn-custom btn-sm" type="button">View Materials</button>
-                                                    <button class="btn btn-outline-primary btn-sm" type="button">Assignments</button>
+                                                    <button class="btn btn-primary btn-custom btn-sm" type="button" onclick="viewMaterials(<?php echo $course['course_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>')">View Materials</button>
+                                                    <button class="btn btn-outline-primary btn-sm" type="button" onclick="viewAssignments(<?php echo $course['course_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>')">Assignments</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -1390,7 +1392,168 @@ $progress_percentages = [
         </div>
     </div>
 
+    <!-- Materials Modal -->
+    <div class="modal fade" id="materialsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-book me-2"></i>Course Materials</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="materialsContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status"></div>
+                        <p>Loading materials...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignments Modal -->
+    <div class="modal fade" id="assignmentsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-tasks me-2"></i>Course Assignments</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="assignmentsContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status"></div>
+                        <p>Loading assignments...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/student_dashboard.js"></script>
+    <script>
+    function viewMaterials(courseId, courseCode) {
+        const modal = new bootstrap.Modal(document.getElementById('materialsModal'));
+        const content = document.getElementById('materialsContent');
+        
+        // Reset content
+        content.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading materials...</p></div>';
+        
+        // Update modal title
+        document.querySelector('#materialsModal .modal-title').innerHTML = `<i class="fas fa-book me-2"></i>Materials - ${courseCode}`;
+        
+        modal.show();
+        
+        fetch(`../PHP/get_course_materials.php?course_id=${courseId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.materials.length === 0) {
+                        content.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>No materials available for this course yet.</div>';
+                    } else {
+                        let html = '<div class="list-group">';
+                        data.materials.forEach(material => {
+                            const uploadDate = new Date(material.created_at).toLocaleDateString();
+                            html += `
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">${material.title}</h6>
+                                            <p class="mb-1 text-muted">${material.description || 'No description'}</p>
+                                            <small class="text-muted">Uploaded: ${uploadDate} by ${material.lecturer_name}</small>
+                                        </div>
+                                        <div>
+                                            <a href="${material.file_path_url}" class="btn btn-sm btn-primary" target="_blank">
+                                                <i class="fas fa-download me-1"></i>Download
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        content.innerHTML = html;
+                    }
+                } else {
+                    content.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                content.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading materials.</div>';
+            });
+    }
+    
+    function viewAssignments(courseId, courseCode) {
+        const modal = new bootstrap.Modal(document.getElementById('assignmentsModal'));
+        const content = document.getElementById('assignmentsContent');
+        
+        // Reset content
+        content.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading assignments...</p></div>';
+        
+        // Update modal title
+        document.querySelector('#assignmentsModal .modal-title').innerHTML = `<i class="fas fa-tasks me-2"></i>Assignments - ${courseCode}`;
+        
+        modal.show();
+        
+        fetch(`../PHP/get_course_assignments.php?course_id=${courseId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.assignments.length === 0) {
+                        content.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>No assignments available for this course yet.</div>';
+                    } else {
+                        let html = '<div class="list-group">';
+                        data.assignments.forEach(assignment => {
+                            const dueDate = new Date(assignment.due_date);
+                            const isOverdue = dueDate < new Date();
+                            const hasSubmission = assignment.sub_id !== null;
+                            
+                            let statusBadge = '';
+                            if (hasSubmission) {
+                                statusBadge = '<span class="badge bg-info">Submitted</span>';
+                            } else if (isOverdue) {
+                                statusBadge = '<span class="badge bg-danger">Overdue</span>';
+                            } else {
+                                statusBadge = '<span class="badge bg-warning">Pending</span>';
+                            }
+                            
+                            html += `
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">${assignment.title} ${statusBadge}</h6>
+                                            <p class="mb-1 text-muted">${assignment.description || 'No description'}</p>
+                                            <small class="text-muted">Due: ${dueDate.toLocaleDateString()} | Max Score: ${assignment.max_score}</small>
+
+                                        </div>
+                                        <div>
+                                            ${!hasSubmission && !isOverdue ? 
+                                                `<button class="btn btn-sm btn-success" onclick="submitAssignment(${assignment.assignment_id}, '${assignment.title}')">
+                                                    <i class="fas fa-upload me-1"></i>Submit
+                                                </button>` : 
+                                                hasSubmission ? 
+                                                    `<small class="text-success">Submitted: ${new Date(assignment.submitted_at).toLocaleDateString()}</small>` :
+                                                    '<small class="text-danger">Overdue</small>'
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        content.innerHTML = html;
+                    }
+                } else {
+                    content.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                content.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading assignments.</div>';
+            });
+    }
+    
+    function submitAssignment(assignmentId, title) {
+        alert(`Assignment submission functionality for "${title}" will be implemented next.`);
+    }
+    </script>
 </body>
 </html>
