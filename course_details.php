@@ -30,8 +30,8 @@ try {
   $course = $stmt->fetch(PDO::FETCH_ASSOC);
 
   if (!$course) {
-    // Course not found
-    header('Location: searchcourse.php');
+    // Course not found - redirect back to search with error message
+    header('Location: searchcourse.php?error=course_not_found');
     exit();
   }
 
@@ -357,7 +357,7 @@ try {
             <!-- Learning Outcomes (if available) -->
             <div class="detail-card" data-aos="fade-up">
               <h3><i class="bi bi-target me-2"></i>Learning Outcomes</h3>
-              <?php if (!empty($course['learning_outcomes'])): ?>
+              <?php if (isset($course['learning_outcomes']) && !empty($course['learning_outcomes'])): ?>
                 <p class="mb-4">By the end of this course, students will be able to:</p>
                 <?php
                   // If stored as JSON in DB, decode; otherwise if it's an array, iterate
@@ -409,7 +409,7 @@ try {
             <div class="detail-card" data-aos="fade-up" data-aos-delay="200">
               <h3><i class="bi bi-clipboard-check me-2"></i>Assessment Breakdown</h3>
               <div class="assessment-grid">
-                <?php if (!empty($course['assessment'])): ?>
+                <?php if (isset($course['assessment']) && !empty($course['assessment'])): ?>
                   <?php
                     $assess = [];
                     if (is_string($course['assessment'])) {
@@ -531,7 +531,7 @@ try {
               <h3><i class="bi bi-list-check me-2"></i>Prerequisites</h3>
               <?php
                 $prereqs = [];
-                if (!empty($course['prerequisites'])) {
+                if (isset($course['prerequisites']) && !empty($course['prerequisites'])) {
                     if (is_string($course['prerequisites'])) {
                         // try JSON
                         $decodedP = json_decode($course['prerequisites'], true);

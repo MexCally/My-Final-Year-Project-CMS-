@@ -202,6 +202,12 @@ if (isset($_POST['searchbtn'])) {
         <h2 class="available-courses-header">Available Courses</h2>
         <p class="available-courses-subtitle">These are the courses we offer!</p>
 
+        <?php if (isset($_GET['error']) && $_GET['error'] === 'course_not_found'): ?>
+          <div class="alert alert-warning mt-3" role="alert">
+            <strong>Course Not Found</strong> — The course you tried to access could not be found. Please try selecting another course.
+          </div>
+        <?php endif; ?>
+
         <?php if (isset($_GET['debug']) && $_GET['debug'] == '1'): ?>
           <div class="alert alert-secondary mt-3" role="alert">
             <strong>Debug Info</strong>
@@ -245,7 +251,8 @@ if (isset($_POST['searchbtn'])) {
                                 <p class="course-teacher">
                                     Teacher: <span><?php echo htmlspecialchars($course['lecturer_name'] ?? 'Not Assigned'); ?></span>
                                 </p>
-                                <a href="course_details.php?id=<?php echo urlencode($course['course_id']); ?>" class="read-more-btn">Read More</a>
+                                <!-- Debug: course_id=<?php echo (int)$course['course_id']; ?> -->
+                                <a href="course_details.php?id=<?php echo (int)$course['course_id']; ?>" class="read-more-btn" style="display: block;">Read More</a>
                             </div>
                         </div>
                     </div>
