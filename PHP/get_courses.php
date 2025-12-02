@@ -16,6 +16,7 @@ try {
             c.department,
             c.level,
             c.semester,
+            c.course_image,
             c.lecturer_id,
             CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name,
             c.created_at
@@ -36,6 +37,7 @@ try {
             c.department,
             c.level,
             c.semester,
+            c.course_image,
             c.lecturer_id,
             CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name,
             c.created_at

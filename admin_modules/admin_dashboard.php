@@ -33,7 +33,7 @@ $admin_email = $_SESSION['admin_email'] ?? '';
         <!-- Sidebar -->
         <nav id="sidebar" class="sidebar">
             <div class="sidebar-header">
-                <h3><i class="fas fa-graduation-cap"></i> EduCMS</h3>
+                <h3><i class="fas fa-graduation-cap"></i> Admin</h3>
             </div>
             <ul class="list-unstyled components">
                 <li class="active">
@@ -866,6 +866,11 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                                 </select>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Course Image (optional)</label>
+                            <input type="file" class="form-control" id="courseImage" name="course_image" accept="image/*">
+                            <div id="addCourseImagePreview" class="mt-2"></div>
+                        </div>
                     </form>
                     <div id="addCourseErrors" class="alert alert-danger" style="display: none;"></div>
                     <div id="addCourseSuccess" class="alert alert-success" style="display: none;"></div>
@@ -930,6 +935,11 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                             <label class="form-label">Password *</label>
                             <input type="password" class="form-control" id="lecturer_password" name="password" placeholder="Minimum 8 characters" required>
                             <div class="form-text">Password must be at least 8 characters long.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Course Image (optional)</label>
+                            <input type="file" class="form-control" id="editCourseImage" name="course_image" accept="image/*">
+                            <div id="editCourseImagePreview" class="mt-2"></div>
                         </div>
                     </form>
                     <div id="addLecturerErrors" class="alert alert-danger" style="display: none;"></div>

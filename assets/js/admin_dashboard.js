@@ -302,6 +302,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (photoInput) {
       photoInput.addEventListener("change", previewPhoto)
     }
+
+    const addCourseImageInput = document.getElementById('courseImage')
+    if (addCourseImageInput) {
+      addCourseImageInput.addEventListener('change', previewAddCourseImage)
+    }
+
+    const editCourseImageInput = document.getElementById('editCourseImage')
+    if (editCourseImageInput) {
+      editCourseImageInput.addEventListener('change', previewEditCourseImage)
+    }
   
     // Add Student Form Handler
     const addStudentForm = document.getElementById("addStudentForm")
@@ -517,6 +527,37 @@ document.addEventListener("DOMContentLoaded", () => {
       reader.readAsDataURL(photoInput.files[0])
     }
   }
+
+  function previewAddCourseImage(e) {
+    const input = e.target
+    const container = document.getElementById('addCourseImagePreview')
+    if (!container) return
+    if (input.files && input.files[0]) {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        container.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="max-height:120px;">`
+      }
+      reader.readAsDataURL(input.files[0])
+    } else {
+      container.innerHTML = ''
+    }
+  }
+
+  function previewEditCourseImage(e) {
+    const input = e.target
+    const container = document.getElementById('editCourseImagePreview')
+    if (!container) return
+    if (input.files && input.files[0]) {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        container.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="max-height:120px;">`
+      }
+      reader.readAsDataURL(input.files[0])
+    } else {
+      // keep existing preview if any, or clear
+      // do nothing to preserve server-provided preview
+    }
+  }
   
   function uploadProfilePhoto() {
     const photoInput = document.getElementById("photoInput")
@@ -601,6 +642,16 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("editCourseLevel").value = course.level || ''
         document.getElementById("editCourseSemester").value = course.semester || ''
         document.getElementById("editCourseLecturer").value = course.lecturer_id || ''
+
+        // Populate image preview if available
+        const preview = document.getElementById('editCourseImagePreview')
+        if (preview) {
+          if (course.course_image) {
+            preview.innerHTML = `<img src="${course.course_image}" class="img-fluid rounded" style="max-height:120px;">`
+          } else {
+            preview.innerHTML = ''
+          }
+        }
 
         console.log("[v0] Course edit modal populated for:", courseCode)
       } else {
@@ -854,6 +905,12 @@ fetch('../PHP/edit_student.php', {
     formData.append('level', level)
     formData.append('semester', semester)
     formData.append('lecturer_id', lecturerId)
+
+    // Append course image if provided
+    const editImageInput = document.getElementById('editCourseImage')
+    if (editImageInput && editImageInput.files && editImageInput.files[0]) {
+      formData.append('course_image', editImageInput.files[0])
+    }
 
     console.log("[v0] Saving course changes:", courseCode)
 

@@ -62,7 +62,7 @@ try {
         <div class="container-fluid">
             <a class="navbar-brand" href="#">
                 <i class="fas fa-graduation-cap me-2"></i>
-                Academic Portal
+                Lecturer Dashboard
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -137,7 +137,7 @@ try {
                 <!-- Dashboard Section -->
                 <div id="dashboard" class="content-section">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                        <h1 class="h2">Dashboard</h1>
+                        <h1 class="h2">Dashboard Overview</h1>
                         <div class="btn-toolbar mb-2 mb-md-0">
                             <div class="btn-group me-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary">
@@ -158,7 +158,11 @@ try {
                                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                                 Total Courses
                                             </div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $total_courses; ?></div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                                <a href="#courses" class="text-decoration-none">
+                                                    <?php echo (int)$total_courses . ' ' . ((int)$total_courses === 1 ? 'Course' : 'Courses'); ?>
+                                                </a>
+                                            </div>
                                         </div>
                                         <div class="col-auto">
                                             <i class="fas fa-book fa-2x text-gray-300"></i>

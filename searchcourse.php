@@ -5,15 +5,16 @@ require_once 'config/db.php';
 try {
     $stmt = $pdo->prepare("
         SELECT 
-            c.course_id,
-            c.course_code,
-            c.course_title,
-            c.course_description,
-            c.course_unit,
-            c.department,
-            c.level,
-            c.semester,
-            CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
+          c.course_id,
+          c.course_code,
+          c.course_title,
+          c.course_description,
+          c.course_unit,
+          c.department,
+          c.level,
+          c.semester,
+          c.course_image,
+          CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
         FROM coursetbl c
         LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
         ORDER BY c.course_code
@@ -43,15 +44,16 @@ if (isset($_POST['searchbtn'])) {
         try {
             $stmt = $pdo->prepare(
                 "SELECT 
-                    c.course_id,
-                    c.course_code,
-                    c.course_title,
-                    c.course_description,
-                    c.course_unit,
-                    c.department,
-                    c.level,
-                    c.semester,
-                    CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
+                  c.course_id,
+                  c.course_code,
+                  c.course_title,
+                  c.course_description,
+                  c.course_unit,
+                  c.department,
+                  c.level,
+                  c.semester,
+                  c.course_image,
+                  CONCAT(l.First_name, ' ', l.Last_Name) as lecturer_name
                 FROM coursetbl c
                 LEFT JOIN lecturertbl l ON c.lecturer_id = l.LecturerID
                 WHERE (
@@ -235,7 +237,41 @@ if (isset($_POST['searchbtn'])) {
                     <div class="col-md-6 col-lg-4 mb-4">
                         <div class="course-card">
                             <div class="course-image">
-                                <img src="assets/img/masonry-portfolio/masonry-portfolio-9.jpg" alt="<?php echo htmlspecialchars($course['course_title']); ?>">
+                              <?php
+                              // Determine image for course:
+                              // 1. If DB provides a path in $course['course_image'], use it (must be relative to project root)
+                              // 2. Else look for a file named after the course code in assets/img/courses/<COURSE_CODE>.jpg
+                              // 3. Fallback to default image
+                              $defaultImg = 'assets/img/humanresourses.jpg';
+                              $imgSrc = $defaultImg;
+
+                              // prefer explicit DB-provided image path if present; prefer thumbnail when available
+                              if (!empty($course['course_image'])) {
+                                $candidate = $course['course_image'];
+                                $candidateFull = __DIR__ . '/' . $candidate;
+                                $candidateThumb = dirname($candidateFull) . '/thumbs/' . basename($candidateFull);
+                                if (file_exists($candidateThumb)) {
+                                  // use relative path to thumb
+                                  $imgSrc = dirname($candidate) . '/thumbs/' . basename($candidate);
+                                } elseif (file_exists($candidateFull)) {
+                                  $imgSrc = $candidate;
+                                }
+                              }
+
+                              // try course-code-based image next (e.g., assets/img/courses/CSC101.jpg)
+                              if ($imgSrc === $defaultImg && !empty($course['course_code'])) {
+                                $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $course['course_code']);
+                                $byCode = 'assets/img/courses/' . $safeCode . '.jpg';
+                                $byCodeFull = __DIR__ . '/' . $byCode;
+                                $byCodeThumb = dirname($byCodeFull) . '/thumbs/' . basename($byCodeFull);
+                                if (file_exists($byCodeThumb)) {
+                                  $imgSrc = dirname($byCode) . '/thumbs/' . basename($byCode);
+                                } elseif (file_exists($byCodeFull)) {
+                                  $imgSrc = $byCode;
+                                }
+                              }
+                              ?>
+                              <img src="<?php echo htmlspecialchars($imgSrc); ?>" alt="<?php echo htmlspecialchars($course['course_title']); ?>">
                             </div>
                             <div class="course-content">
                                 <h3 class="course-title"><?php echo htmlspecialchars($course['course_code'] . ' - ' . $course['course_title']); ?></h3>
