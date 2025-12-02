@@ -76,6 +76,9 @@ try {
  * Build HTML email body
  */
 function buildEmailBody($name, $email, $subject, $message) {
+    // Sanitize message and preserve new lines as <br>
+    $safe_message = nl2br(htmlspecialchars($message));
+
     return <<<HTML
     <!DOCTYPE html>
     <html>
@@ -110,7 +113,7 @@ function buildEmailBody($name, $email, $subject, $message) {
                 <div class="field">
                     <div class="field-label">Message:</div>
                     <div class="field-value">
-                        <p>{nl2br(htmlspecialchars($message))}</p>
+                        <p>{$safe_message}</p>
                     </div>
                 </div>
             </div>
