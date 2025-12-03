@@ -34,11 +34,13 @@ try {
     }
     
     // Get submissions for this assignment
-    $stmt = $pdo->prepare("SELECT 
+    $stmt = $pdo->prepare("SELECT
         s.sub_id,
         s.student_id,
         s.file_path,
         s.submitted_at,
+        s.score_received,
+        s.comments as submission_comments,
         CONCAT(st.first_name, ' ', st.last_name) as student_name,
         st.email as student_email,
         st.Matric_No as matric_no

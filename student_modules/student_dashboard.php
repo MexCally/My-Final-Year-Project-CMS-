@@ -1173,7 +1173,7 @@ $progress_percentages = [
         
         modal.show();
         
-        fetch(`../PHP/get_course_materials.php?course_id=${courseId}`)
+        fetch(`../PHP/get_course_materials.php?course_id=${courseId}`, { credentials: 'include' })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -1192,7 +1192,7 @@ $progress_percentages = [
                                             <small class="text-muted">Uploaded: ${uploadDate} by ${material.lecturer_name}</small>
                                         </div>
                                         <div>
-                                            <a href="${material.file_path_url}" class="btn btn-sm btn-primary" target="_blank">
+                                            <a href="../PHP/download_course_material.php?material_id=${material.material_id}" class="btn btn-sm btn-primary">
                                                 <i class="fas fa-download me-1"></i>Download
                                             </a>
                                         </div>
@@ -1256,12 +1256,18 @@ $progress_percentages = [
 
                                         </div>
                                         <div>
-                                            ${!hasSubmission && !isOverdue ? 
+                                            ${!hasSubmission && !isOverdue ?
                                                 `<button class="btn btn-sm btn-success" onclick="submitAssignment(${assignment.assignment_id}, '${assignment.title}', ${courseId}, '${courseCode}')">
                                                     <i class="fas fa-upload me-1"></i>Submit
-                                                </button>` : 
-                                                hasSubmission ? 
-                                                    `<small class="text-success">Submitted: ${new Date(assignment.submitted_at).toLocaleDateString()}</small>` :
+                                                </button>` :
+                                                hasSubmission ?
+                                                    `<div class="text-end">
+                                                        <small class="text-success d-block">Submitted: ${new Date(assignment.submitted_at).toLocaleDateString()}</small>
+                                                        ${assignment.score_received !== null && assignment.score_received !== undefined ?
+                                                            `<small class="text-primary fw-bold">Grade: ${assignment.score_received}/100</small>` :
+                                                            `<small class="text-warning">Grade: Pending</small>`
+                                                        }
+                                                    </div>` :
                                                     '<small class="text-danger">Overdue</small>'
                                             }
                                         </div>

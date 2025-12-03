@@ -818,6 +818,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     <th>Email</th>
                     <th>File Name</th>
                     <th>Submitted At</th>
+                    <th>Score</th>
+                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -834,12 +836,29 @@ document.addEventListener("DOMContentLoaded", () => {
                       </td>
                       <td>${submission.submitted_at_formatted}</td>
                       <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" 
+                        <div class="input-group input-group-sm" style="width: 120px;">
+                          <input type="number" class="form-control" data-sub-id="${submission.sub_id}"
+                                 placeholder="0-100" min="0" max="100" step="0.1"
+                                 value="${submission.score_received || ''}">
+                          <button class="btn btn-outline-success btn-sm"
+                                  onclick="saveAssignmentGrade('${submission.sub_id}', this)"
+                                  title="Save Grade">
+                            <i class="fas fa-save"></i>
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        ${submission.score_received !== null ?
+                          '<small class="text-success ms-2"><i class="fas fa-check-circle"></i> Graded</small>' :
+                          '<small class="text-warning ms-2"><i class="fas fa-clock"></i> Pending</small>'}
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-primary me-1"
                                 onclick="downloadSubmission('${submission.sub_id}', '${submission.file_name}')"
                                 title="Download">
                           <i class="fas fa-download"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-info" 
+                        <button class="btn btn-sm btn-outline-info"
                                 onclick="viewSubmission('${submission.sub_id}')"
                                 title="View">
                           <i class="fas fa-eye"></i>
@@ -1090,6 +1109,60 @@ function viewSubmission(filePath) {
   window.open(filePath, '_blank')
 }
 
+// Function to save assignment grade
+function saveAssignmentGrade(subId, buttonElement) {
+  const row = buttonElement.closest('tr')
+  const scoreInput = row.querySelector(`input[data-sub-id="${subId}"]`)
+  const score = scoreInput.value.trim()
+
+  if (!score) {
+    showNotification('Please enter a score', 'warning')
+    return
+  }
+
+  const scoreValue = parseFloat(score)
+  if (scoreValue < 0 || scoreValue > 100) {
+    showNotification('Score must be between 0 and 100', 'warning')
+    return
+  }
+
+  // Show loading state
+  const originalHtml = buttonElement.innerHTML
+  buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'
+  buttonElement.disabled = true
+
+  // Prepare form data
+  const formData = new FormData()
+  formData.append('sub_id', subId)
+  formData.append('score', scoreValue)
+
+  fetch('../PHP/save_assignment_grade.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(data.message, 'success')
+      // Update the status text
+      const statusElement = row.querySelector('small.ms-2')
+      statusElement.className = 'text-success ms-2'
+      statusElement.textContent = 'Graded'
+    } else {
+      showNotification(data.message || 'Failed to save grade', 'danger')
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error)
+    showNotification('An error occurred while saving the grade', 'danger')
+  })
+  .finally(() => {
+    // Reset button
+    buttonElement.innerHTML = originalHtml
+    buttonElement.disabled = false
+  })
+}
+
 // Function to load course materials
 function loadCourseMaterials() {
   const container = document.getElementById('materialsContainer')
@@ -1105,7 +1178,7 @@ function loadCourseMaterials() {
   `
   
   // Fetch materials from server
-  fetch('../PHP/get_course_materials.php')
+  fetch('../PHP/get_lecturer_course_materials.php')
     .then(response => response.json())
     .then(data => {
       if (data.error) {
