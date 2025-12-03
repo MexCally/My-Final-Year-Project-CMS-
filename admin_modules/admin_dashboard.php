@@ -1137,6 +1137,12 @@ try {
                                 </select>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Course Image</label>
+                            <input type="file" class="form-control" id="editCourseImage" name="course_image" accept="image/*">
+                            <div class="form-text">Upload a new image to replace the current one (optional)</div>
+                            <div id="editCourseImagePreview" class="mt-2"></div>
+                        </div>
                     </form>
                     <div id="editCourseErrors" class="alert alert-danger" style="display: none;"></div>
                     <div id="editCourseSuccess" class="alert alert-success" style="display: none;"></div>
