@@ -100,10 +100,10 @@ function generatePDF($registrations, $student) {
 
 function generateDOC($registrations, $student) {
     $content = generateFormContent($registrations, $student);
-    
+
     header('Content-Type: application/msword');
     header('Content-Disposition: attachment; filename="course_registration_' . $student['Matric_No'] . '.doc"');
-    
+
     echo "<html><body>$content</body></html>";
 }
 
@@ -199,15 +199,8 @@ function generateFormHTML($registrations, $student) {
     <div style="max-width: 800px; margin: 0 auto; padding: 10px; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.2;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 30px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;"></div>
-                <div style="flex: 2; text-align: center;">
-                    <h2 style="margin: 0; font-size: 16px; font-weight: bold;">HIGHLAND COLLEGE OF TECHNOLOGY</h2>
-                    <p style="margin: 5px 0; font-size: 14px;">SAMONDA, IBADAN, NIGERIA</p>
-                </div>
-                <div style="flex: 1; text-align: right;">
-                    <img src="../assets/img/logo1.png" alt="HCT Logo" style="width: 60px; height: 60px; border: 2px solid #000;">
-                </div>
+            <div style="display: flex; justify-content: center; align-items: center;">
+                <img src="../assets/img/logo1.jpg" alt="College Logo" style="width: 120px; height: 120px; border: 2px solid #000;">
             </div>
             <h3 style="margin: 20px 0 10px 0; font-size: 14px; font-weight: bold;">COURSE REGISTRATION FORM</h3>
             <p style="margin: 0; font-size: 12px;">PLEASE COMPLETE THE FORM NEATLY</p>
@@ -275,7 +268,7 @@ function generateFormHTML($registrations, $student) {
             <div style="display: flex; margin-bottom: 20px;">
                 <div style="flex: 1; margin-right: 20px;">
                     <label style="font-size: 12px; font-weight: bold;">LEVEL (ND1/ND2):</label>
-                    <div style="border-bottom: 1px solid #000; padding: 2px 5px; margin-top: 2px; min-height: 18px; display: inline-block; min-width: 200px;">' . htmlspecialchars($student['Level']) . '</div>
+                    <div style="border-bottom: 1px solid #000; padding: 2px 5px; margin-top: 2px; min-height: 18px; display: inline-block; min-width: 200px;">' . htmlspecialchars($student['Level'] . ' - ' . $registrations[0]['semester']) . '</div>
                 </div>
                 <div style="flex: 1;">
                     <label style="font-size: 12px; font-weight: bold;">SESSION:</label>
