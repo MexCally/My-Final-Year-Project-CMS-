@@ -37,18 +37,20 @@ function create_image_thumbnail($srcPath, $destPath, $maxWidth = 400)
     // Create source image resource
     switch ($mime) {
         case 'image/jpeg':
-            $srcImg = imagecreatefromjpeg($srcPath);
+            $srcImg = @imagecreatefromjpeg($srcPath);
             break;
         case 'image/png':
-            $srcImg = imagecreatefrompng($srcPath);
+            $srcImg = @imagecreatefrompng($srcPath);
             break;
         case 'image/webp':
             if (!function_exists('imagecreatefromwebp')) throw new Exception('WEBP not supported by GD');
-            $srcImg = imagecreatefromwebp($srcPath);
+            $srcImg = @imagecreatefromwebp($srcPath);
             break;
         default:
             throw new Exception('Unsupported image type: ' . $mime);
     }
+
+    if (!$srcImg) throw new Exception('Failed to create image resource from ' . $mime);
 
     $thumb = imagecreatetruecolor($newWidth, $newHeight);
 

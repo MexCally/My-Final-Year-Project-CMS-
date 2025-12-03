@@ -239,13 +239,12 @@ if (isset($_POST['searchbtn'])) {
                             <div class="course-image">
                               <?php
                               // Determine image for course:
-                              // 1. If DB provides a path in $course['course_image'], use it (must be relative to project root)
-                              // 2. Else look for a file named after the course code in assets/img/courses/<COURSE_CODE>.jpg
-                              // 3. Fallback to default image
+                              // 1. If DB provides a path in $course['course_image'], prefer thumbnail
+                              // 2. Otherwise use fallback: course-code-based file or default image
                               $defaultImg = 'assets/img/humanresourses.jpg';
                               $imgSrc = $defaultImg;
 
-                              // prefer explicit DB-provided image path if present; prefer thumbnail when available
+                              // Prefer explicit DB-provided image path if present; prefer thumbnail when available
                               if (!empty($course['course_image'])) {
                                 $candidate = $course['course_image'];
                                 $candidateFull = __DIR__ . '/' . $candidate;

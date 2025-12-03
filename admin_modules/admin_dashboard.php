@@ -16,6 +16,25 @@ if (!isset($_SESSION['admin_id'])) {
 // Get admin info from session
 $admin_name = $_SESSION['admin_name'] ?? 'Admin';
 $admin_email = $_SESSION['admin_email'] ?? '';
+
+// Fetch admin details for edit form
+$admin_first = '';
+$admin_last = '';
+$admin_phone = '';
+try {
+    if (!empty($admin_email)) {
+        $aStmt = $pdo->prepare("SELECT first_name, last_name, phone_num FROM admintbl WHERE email = ? LIMIT 1");
+        $aStmt->execute([$admin_email]);
+        $adminRow = $aStmt->fetch(PDO::FETCH_ASSOC);
+        if ($adminRow) {
+            $admin_first = $adminRow['first_name'] ?? '';
+            $admin_last = $adminRow['last_name'] ?? '';
+            $admin_phone = $adminRow['phone_num'] ?? '';
+        }
+    }
+} catch (Exception $e) {
+    // ignore errors; form will fall back to session values
+}
 ?>
 
 <!DOCTYPE html>
@@ -96,7 +115,8 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                             </button>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editAdminModal"><i class="fas fa-user-edit"></i> Edit Info</a></li>
+                                <!-- <li><a class="dropdown-item" href="#"><i class="fas fa-cog"></i> Settings</a></li> -->
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="admin_logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                             </ul>
@@ -801,6 +821,41 @@ $admin_email = $_SESSION['admin_email'] ?? '';
         </div>
     </div>
 
+    <!-- Edit Admin Info Modal -->
+    <div class="modal fade" id="editAdminModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Profile Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editAdminForm">
+                        <div class="mb-3">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="adminFirstName" name="first_name" value="<?php echo htmlspecialchars($admin_first); ?>" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="adminLastName" name="last_name" value="<?php echo htmlspecialchars($admin_last); ?>" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="adminPhone" name="phone_num" value="<?php echo htmlspecialchars($admin_phone); ?>">
+                        </div>
+                        <input type="hidden" name="update_profile" value="1">
+                    </form>
+                    <div id="editAdminErrors" class="alert alert-danger" style="display:none;"></div>
+                    <div id="editAdminSuccess" class="alert alert-success" style="display:none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveAdminInfoBtn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Course Modal -->
     <div class="modal fade" id="addCourseModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
@@ -935,11 +990,6 @@ $admin_email = $_SESSION['admin_email'] ?? '';
                             <label class="form-label">Password *</label>
                             <input type="password" class="form-control" id="lecturer_password" name="password" placeholder="Minimum 8 characters" required>
                             <div class="form-text">Password must be at least 8 characters long.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Course Image (optional)</label>
-                            <input type="file" class="form-control" id="editCourseImage" name="course_image" accept="image/*">
-                            <div id="editCourseImagePreview" class="mt-2"></div>
                         </div>
                     </form>
                     <div id="addLecturerErrors" class="alert alert-danger" style="display: none;"></div>
@@ -1342,6 +1392,37 @@ $admin_email = $_SESSION['admin_email'] ?? '';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/admin_dashboard.js"></script>
+    <script>
+    // Handle Edit Admin Info
+    document.addEventListener('DOMContentLoaded', function(){
+        const saveBtn = document.getElementById('saveAdminInfoBtn');
+        if (!saveBtn) return;
+        saveBtn.addEventListener('click', function(){
+            const form = document.getElementById('editAdminForm');
+            const errorDiv = document.getElementById('editAdminErrors');
+            const successDiv = document.getElementById('editAdminSuccess');
+            if (errorDiv) { errorDiv.style.display='none'; errorDiv.textContent=''; }
+            if (successDiv) { successDiv.style.display='none'; successDiv.textContent=''; }
+
+            const formData = new FormData(form);
+
+            fetch('profile.php', { method: 'POST', body: formData, credentials: 'include' })
+            .then(res => res.text())
+            .then(txt => {
+                // profile.php returns HTML page normally; but on POST it updates and sets $success/$error and reloads.
+                // To detect success we can reload the page or parse for success message. Simpler: reload.
+                // If you prefer AJAX feedback, consider creating a JSON endpoint.
+                window.location.reload();
+            })
+            .catch(err => {
+                if (errorDiv) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = 'Error updating profile. Please try again.';
+                }
+            });
+        });
+    });
+    </script>
     <script>
     // Client-side session verification: calls server endpoint and redirects if session invalid
     (function(){

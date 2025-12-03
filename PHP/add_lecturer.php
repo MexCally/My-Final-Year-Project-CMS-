@@ -74,16 +74,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO lecturertbl (AdminID, First_name, Last_Name, Email, Phone_Num, Password, Department, Gender, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
             $result = $stmt->execute([$_SESSION['admin_id'], $first_name, $last_name, $email, $phone_num, $hashed_password, $department, $gender]);
             
-            if (!$result) {
+            if ($result) {
+                // Log the activity
+                $lecturer_id = $pdo->lastInsertId();
+                $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
+                $activity_stmt->execute(['add_lecturer', "Added new lecturer: $first_name $last_name ($email)", $_SESSION['admin_id'], 'admin']);
+
+                $success = true;
+            } else {
                 $errors[] = "Failed to insert lecturer into database.";
             }
-
-            // Log the activity
-            $lecturer_id = $pdo->lastInsertId();
-            $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
-            $activity_stmt->execute(['add_lecturer', "Added new lecturer: $first_name $last_name ($email)", $_SESSION['admin_id'], 'admin']);
-
-            $success = true;
         } catch (PDOException $e) {
             error_log("Add lecturer error: " . $e->getMessage());
             $errors[] = "Database error: " . $e->getMessage();

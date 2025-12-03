@@ -95,7 +95,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
             $fileTmp = $_FILES['course_image']['tmp_name'];
-            $fileType = mime_content_type($fileTmp);
+            // Use finfo_file if available, else mime_content_type (deprecated)
+            $fileType = function_exists('finfo_file') ? 
+                finfo_file(finfo_open(FILEINFO_MIME_TYPE), $fileTmp) : 
+                mime_content_type($fileTmp);
+            
             $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
             if (!array_key_exists($fileType, $allowed)) {
                     $response["errors"][] = 'Invalid image type. Allowed: jpg, png, webp.';
@@ -112,35 +116,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $target = $uploadDir . $filename;
                 if (move_uploaded_file($fileTmp, $target)) {
                     $course_image_path = 'assets/img/courses/' . $filename;
-                        // Create thumbnails directory
-                        $thumbsDir = $uploadDir . 'thumbs/';
-                        if (!is_dir($thumbsDir)) mkdir($thumbsDir, 0755, true);
+                    // Create thumbnails directory
+                    $thumbsDir = $uploadDir . 'thumbs/';
+                    if (!is_dir($thumbsDir)) mkdir($thumbsDir, 0755, true);
 
-                        // Create a thumbnail (max width 400px)
-                        try {
-                            $srcPath = $target;
-                            $thumbPath = $thumbsDir . $filename;
-                            create_image_thumbnail($srcPath, $thumbPath, 400);
-                        } catch (Exception $thumbEx) {
-                            // non-fatal
-                        }
+                    // Create a thumbnail (max width 400px)
+                    try {
+                        $srcPath = $target;
+                        $thumbPath = $thumbsDir . $filename;
+                        create_image_thumbnail($srcPath, $thumbPath, 400);
+                    } catch (Exception $thumbEx) {
+                        // non-fatal
+                        error_log('Thumbnail creation failed: ' . $thumbEx->getMessage());
+                    }
 
-                        // Delete previous image and thumb if exists
-                        if (!empty($existing_course_image)) {
-                            $prevPath = __DIR__ . '/../' . $existing_course_image;
-                            $prevThumb = dirname($prevPath) . '/thumbs/' . basename($prevPath);
-                            if (file_exists($prevPath) && is_writable($prevPath)) @unlink($prevPath);
-                            if (file_exists($prevThumb) && is_writable($prevThumb)) @unlink($prevThumb);
-                        }
+                    // Delete previous image and thumb if exists
+                    if (!empty($existing_course_image)) {
+                        $prevPath = __DIR__ . '/../' . $existing_course_image;
+                        $prevThumb = dirname($prevPath) . '/thumbs/' . basename($prevPath);
+                        if (file_exists($prevPath) && is_writable($prevPath)) @unlink($prevPath);
+                        if (file_exists($prevThumb) && is_writable($prevThumb)) @unlink($prevThumb);
+                    }
                 } else {
                     $response["errors"][] = 'Failed to move uploaded image.';
                     echo json_encode($response);
                     exit;
                 }
             }
-        }
-
-        if ($course_image_path !== null) {
+        }        if ($course_image_path !== null) {
             $query = "UPDATE coursetbl SET 
                         course_code = ?,
                         course_title = ?,

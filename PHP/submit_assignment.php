@@ -75,7 +75,10 @@ try {
     // Create upload directory if not exists
     $uploadDir = '../uploads/assignments/';
     if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
+        if (!mkdir($uploadDir, 0755, true)) {
+            echo json_encode(['success' => false, 'message' => 'Failed to create upload directory']);
+            exit;
+        }
     }
     
     // Generate unique filename

@@ -714,11 +714,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Fetch students enrolled in the course
     fetch(`../PHP/get_course_students.php?course_code=${courseCode}`)
-    .then(response => response.json())
+    .then(response => {
+      console.log('Response status:', response.status)
+      return response.json()
+    })
     .then(data => {
+      console.log('Response data:', data)
       if (data.error) {
         console.error('Error fetching course students:', data.error)
-        alert("Error loading course students")
+        alert("Error loading course students: " + data.error)
         return
       }
 
@@ -727,25 +731,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
       studentsTableBody.innerHTML = ''
 
-      if (data.length === 0) {
+      // Check if data.students exists and has length
+      const students = data.students || []
+      if (!students || students.length === 0) {
         studentsTableBody.innerHTML = `
           <tr>
-            <td colspan="7" class="text-center text-muted">No students enrolled in this course</td>
+            <td colspan="6" class="text-center text-muted">No students enrolled in this course</td>
           </tr>
         `
       } else {
-        data.forEach(student => {
+        students.forEach(student => {
           const row = document.createElement('tr')
-          const enrollmentDate = new Date(student.enrollment_date).toLocaleDateString()
-          const statusBadge = student.status === 'Active' ? 'bg-success' : 'bg-warning'
           row.innerHTML = `
             <td>${student.Matric_No}</td>
             <td>${student.first_name} ${student.last_name}</td>
             <td>${student.email}</td>
             <td>${student.Department}</td>
             <td>${student.Level}</td>
-            <td>${enrollmentDate}</td>
-            <td><span class="badge ${statusBadge}">${student.status}</span></td>
+            <td>
+              <button class="btn btn-sm btn-outline-info" onclick="viewStudentDetails(${student.student_id})">
+                <i class="fas fa-eye"></i> View
+              </button>
+            </td>
           `
           studentsTableBody.appendChild(row)
         })
@@ -755,7 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch(error => {
       console.error('Error loading course students:', error)
-      alert("Error loading course students")
+      alert("Error loading course students: " + error.message)
     })
   }
   

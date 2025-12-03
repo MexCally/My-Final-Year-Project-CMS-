@@ -45,7 +45,7 @@ try {
         'Active' as status
     FROM studenttbl s
     JOIN course_regtbl cr ON s.student_id = cr.student_id
-    WHERE cr.course_id = ? AND cr.approval_status = 'Approved'
+    WHERE cr.course_id = ? AND cr.approval_status = 'Registered'
     ORDER BY s.first_name, s.last_name");
     
     $stmt->execute([$course_id]);

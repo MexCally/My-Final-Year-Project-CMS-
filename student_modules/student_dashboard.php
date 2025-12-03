@@ -62,6 +62,17 @@ $courseStmt->execute([$student_id]);
 $enrolled_courses = $courseStmt->fetchAll();
 $registered_courses_count = is_array($enrolled_courses) ? count($enrolled_courses) : 0;
 
+// Fetch distinct semesters from student's course registrations
+$semesterStmt = $pdo->prepare("
+    SELECT DISTINCT cr.semester, cr.academic_year
+    FROM course_regtbl cr
+    WHERE cr.student_id = ?
+    ORDER BY cr.academic_year DESC, cr.semester DESC
+");
+$semesterStmt->execute([$student_id]);
+$available_semesters = $semesterStmt->fetchAll();
+$current_semester_display = !empty($available_semesters) ? htmlspecialchars($available_semesters[0]['semester'] . ' ' . $available_semesters[0]['academic_year']) : 'Current Semester';
+
 // Fetch upcoming deadlines for enrolled courses
 $deadlineStmt = $pdo->prepare("
     SELECT 
@@ -437,7 +448,7 @@ $progress_percentages = [
                     </a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="../student_modules/student_profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                        <!-- <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li> -->
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="../student_modules/student_logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                     </ul>
@@ -473,9 +484,6 @@ $progress_percentages = [
                         </a>
                         <a class="nav-link" href="#transcript" data-section="transcript">
                             <i class="fas fa-file-alt"></i>Transcript
-                        </a>
-                        <a class="nav-link" href="#progress" data-section="progress">
-                            <i class="fas fa-tasks"></i>Academic Progress
                         </a>
                         <a class="nav-link" href="course_selection.php">
                             <i class="fas fa-plus-circle"></i>Course Selection
@@ -630,12 +638,16 @@ $progress_percentages = [
                             <h2 class="text-primary fw-bold">My Registered Courses</h2>
                             <div class="dropdown">
                                 <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                    Spring 2024
+                                    <?php echo htmlspecialchars($current_semester_display); ?>
                                 </button>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#">Spring 2024</a></li>
-                                    <li><a class="dropdown-item" href="#">Fall 2023</a></li>
-                                    <li><a class="dropdown-item" href="#">Summer 2023</a></li>
+                                    <?php if (!empty($available_semesters)): ?>
+                                        <?php foreach ($available_semesters as $sem): ?>
+                                            <li><a class="dropdown-item" href="#"><?php echo htmlspecialchars($sem['semester'] . ' ' . $sem['academic_year']); ?></a></li>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <li><span class="dropdown-item disabled">No semesters available</span></li>
+                                    <?php endif; ?>
                                 </ul>
                             </div>
                         </div>
@@ -736,10 +748,13 @@ $progress_percentages = [
                                     All Semesters
                                 </button>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#">Spring 2024</a></li>
-                                    <li><a class="dropdown-item" href="#">Fall 2023</a></li>
-                                    <li><a class="dropdown-item" href="#">Summer 2023</a></li>
-                                    <li><a class="dropdown-item" href="#">Spring 2023</a></li>
+                                    <?php if (!empty($available_semesters)): ?>
+                                        <?php foreach ($available_semesters as $sem): ?>
+                                            <li><a class="dropdown-item" href="#"><?php echo htmlspecialchars($sem['semester'] . ' ' . $sem['academic_year']); ?></a></li>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <li><span class="dropdown-item disabled">No semesters available</span></li>
+                                    <?php endif; ?>
                                 </ul>
                             </div>
                         </div>
@@ -756,7 +771,7 @@ $progress_percentages = [
                                                         <th>S/N</th>
                                                         <th>Course Code</th>
                                                         <th>Course Title</th>
-                                                        <th>Credit Hours</th>
+                                                        <th>Credit Units</th>
                                                         <th>CA Score</th>
                                                         <th>Test Score</th>
                                                         <th>Exam Score</th>
@@ -853,7 +868,7 @@ $progress_percentages = [
                                     <div class="col-md-6">
                                         <div class="alert alert-info alert-custom">
                                             <h6><i class="fas fa-info-circle me-2"></i>Semester Summary</h6>
-                                            <p class="mb-1"><strong>Total Credit Hours:</strong> <?php echo htmlspecialchars($semester_credits); ?></p>
+                                            <p class="mb-1"><strong>Total Credit Units:</strong> <?php echo htmlspecialchars($semester_credits); ?></p>
                                             <p class="mb-1"><strong>Semester GPA:</strong> <?php echo htmlspecialchars($semester_gpa); ?></p>
                                             <p class="mb-0"><strong>Cumulative GPA:</strong> <?php echo htmlspecialchars($current_gpa); ?></p>
                                         </div>
@@ -874,12 +889,26 @@ $progress_percentages = [
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2 class="text-primary fw-bold">Academic Transcript</h2>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-primary btn-custom">
-                                    <i class="fas fa-download me-2"></i>Download PDF
-                                </button>
-                                <button class="btn btn-outline-primary btn-custom">
-                                    <i class="fas fa-envelope me-2"></i>Request Official
-                                </button>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary btn-custom dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-download me-2"></i>Download PDF
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="../PHP/download_transcript.php?student_id=<?php echo $student_id; ?>&format=pdf"><i class="fas fa-file-pdf me-2"></i>PDF Format</a></li>
+                                        <li><a class="dropdown-item" href="../PHP/download_transcript.php?student_id=<?php echo $student_id; ?>&format=docx"><i class="fas fa-file-word me-2"></i>Word Document</a></li>
+                                        <li><a class="dropdown-item" href="../PHP/download_transcript.php?student_id=<?php echo $student_id; ?>&format=xlsx"><i class="fas fa-file-excel me-2"></i>Excel Spreadsheet</a></li>
+                                    </ul>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary btn-custom dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-envelope me-2"></i>Request Official
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" onclick="requestOfficialTranscript('email')"><i class="fas fa-envelope me-2"></i>Email Request</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="requestOfficialTranscript('mail')"><i class="fas fa-mail-bulk me-2"></i>Postal Mail</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="requestOfficialTranscript('pickup')"><i class="fas fa-hand-paper me-2"></i>In-Person Pickup</a></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
 
@@ -1015,8 +1044,8 @@ $progress_percentages = [
                                     <div class="col-md-6">
                                         <div class="alert alert-primary alert-custom">
                                             <h6><i class="fas fa-graduation-cap me-2"></i>Academic Summary</h6>
-                                            <p class="mb-1"><strong>Total Credit Hours Completed:</strong> <?php echo htmlspecialchars($total_credits); ?></p>
-                                            <p class="mb-1"><strong>Credit Hours in Progress:</strong> <?php echo htmlspecialchars($in_progress_credits); ?></p>
+                                            <p class="mb-1"><strong>Total Credit Units Completed:</strong> <?php echo htmlspecialchars($total_credits); ?></p>
+                                            <p class="mb-1"><strong>Credit Units in Progress:</strong> <?php echo htmlspecialchars($in_progress_credits); ?></p>
                                             <p class="mb-0"><strong>Cumulative GPA:</strong> <?php echo htmlspecialchars($current_gpa); ?></p>
                                         </div>
                                     </div>
@@ -1038,379 +1067,6 @@ $progress_percentages = [
                             </div>
                         </div>
                     </div>
-
-                    <!-- Academic Progress Section -->
-                    <div id="progress" class="content-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2 class="text-primary fw-bold">Academic Progress Monitor</h2>
-                            <span class="badge bg-<?php echo $on_track ? 'success' : 'warning'; ?> fs-6"><?php echo $on_track ? 'On Track for Graduation' : 'Off Track'; ?></span>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-lg-8">
-                                <div class="card dashboard-card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Degree Progress</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="d-flex justify-content-between mb-2">
-                                                <span class="fw-bold">Overall Degree Completion</span>
-                                                <span class="fw-bold"><?php echo htmlspecialchars($total_credits); ?>/<?php echo htmlspecialchars($degree_total_credits); ?> Credits (<?php echo htmlspecialchars($overall_percentage); ?>%)</span>
-                                            </div>
-                                            <div class="progress progress-custom" style="height: 15px;">
-                                                <div class="progress-bar bg-primary" style="width: <?php echo htmlspecialchars($overall_percentage); ?>%"></div>
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <h6 class="text-primary">Core Requirements</h6>
-                                                <div class="mb-3">
-                                                    <div class="d-flex justify-content-between mb-1">
-                                                        <small>Computer Science Core</small>
-                                                        <small><?php echo htmlspecialchars($completed_credits['Computer Science Core']); ?>/<?php echo htmlspecialchars($core_requirements['Computer Science Core']); ?> Credits</small>
-                                                    </div>
-                                                    <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-success" style="width: <?php echo htmlspecialchars($progress_percentages['Computer Science Core']); ?>%"></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <div class="d-flex justify-content-between mb-1">
-                                                        <small>Mathematics</small>
-                                                        <small><?php echo htmlspecialchars($completed_credits['Mathematics']); ?>/<?php echo htmlspecialchars($core_requirements['Mathematics']); ?> Credits</small>
-                                                    </div>
-                                                    <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-warning" style="width: <?php echo htmlspecialchars($progress_percentages['Mathematics']); ?>%"></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <div class="d-flex justify-content-between mb-1">
-                                                        <small>Science Requirements</small>
-                                                        <small><?php echo htmlspecialchars($completed_credits['Science Requirements']); ?>/<?php echo htmlspecialchars($core_requirements['Science Requirements']); ?> Credits</small>
-                                                    </div>
-                                                    <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-info" style="width: <?php echo htmlspecialchars($progress_percentages['Science Requirements']); ?>%"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <h6 class="text-primary">General Education</h6>
-                                                <div class="mb-3">
-                                                    <div class="d-flex justify-content-between mb-1">
-                                                        <small>English & Communication</small>
-                                                        <small><?php echo htmlspecialchars($completed_credits['English & Communication']); ?>/<?php echo htmlspecialchars($gen_ed_requirements['English & Communication']); ?> Credits</small>
-                                                    </div>
-                                                    <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-success" style="width: <?php echo htmlspecialchars($progress_percentages['English & Communication']); ?>%"></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <div class="d-flex justify-content-between mb-1">
-                                                        <small>Liberal Arts</small>
-                                                        <small><?php echo htmlspecialchars($completed_credits['Liberal Arts']); ?>/<?php echo htmlspecialchars($gen_ed_requirements['Liberal Arts']); ?> Credits</small>
-                                                    </div>
-                                                    <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-danger" style="width: <?php echo htmlspecialchars($progress_percentages['Liberal Arts']); ?>%"></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <div class="d-flex justify-content-between mb-1">
-                                                        <small>Electives</small>
-                                                        <small><?php echo htmlspecialchars($completed_credits['Electives']); ?>/<?php echo htmlspecialchars($gen_ed_requirements['Electives']); ?> Credits</small>
-                                                    </div>
-                                                    <div class="progress progress-custom">
-                                                        <div class="progress-bar bg-secondary" style="width: <?php echo htmlspecialchars($progress_percentages['Electives']); ?>%"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="card dashboard-card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-target me-2"></i>Graduation Timeline</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="text-center mb-3">
-                                            <h3 class="text-primary"><?php echo htmlspecialchars($expected_graduation_semester . ' ' . $expected_graduation_year); ?></h3>
-                                            <p class="text-muted">Expected Graduation</p>
-                                        </div>
-                                        <div class="mb-3">
-                                            <small class="text-muted">Semesters Remaining</small>
-                                            <h4 class="text-success"><?php echo htmlspecialchars($semesters_remaining); ?></h4>
-                                        </div>
-                                        <div class="mb-3">
-                                            <small class="text-muted">Credits Needed</small>
-                                            <h4 class="text-warning"><?php echo htmlspecialchars($credits_needed); ?></h4>
-                                        </div>
-                                        <div class="alert alert-info alert-custom">
-                                            <small><i class="fas fa-lightbulb me-1"></i>
-                                            Maintain 15+ credits per semester to graduate on time.</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card dashboard-card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Action Items & Recommendations</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h6 class="text-danger">Urgent Actions</h6>
-                                        <ul class="list-unstyled">
-                                            <li class="mb-2">
-                                                <i class="fas fa-circle text-danger me-2" style="font-size: 0.5rem;"></i>
-                                                Register for Liberal Arts courses next semester
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="fas fa-circle text-warning me-2" style="font-size: 0.5rem;"></i>
-                                                Complete remaining Math requirements
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="fas fa-circle text-info me-2" style="font-size: 0.5rem;"></i>
-                                                Schedule advisor meeting for course planning
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6 class="text-success">Recommendations</h6>
-                                        <ul class="list-unstyled">
-                                            <li class="mb-2">
-                                                <i class="fas fa-check-circle text-success me-2"></i>
-                                                Consider summer courses to lighten future load
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="fas fa-check-circle text-success me-2"></i>
-                                                Explore internship opportunities
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="fas fa-check-circle text-success me-2"></i>
-                                                Join computer science student organizations
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Course Selection Section -->
-                    <!-- <div id="course-selection" class="content-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2 class="text-primary fw-bold">Course Selection</h2>
-                            <div class="d-flex gap-2">
-                                <span class="badge bg-info fs-6">Registration Opens: April 1, 2024</span>
-                                <button class="btn btn-success btn-custom">Submit Registration</button>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-lg-8">
-                                <div class="card dashboard-card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-search me-2"></i>Available Courses - Fall 2024</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row mb-3">
-                                            <div class="col-md-4">
-                                                <select class="form-select">
-                                                    <option>All Departments</option>
-                                                    <option>Computer Science</option>
-                                                    <option>Mathematics</option>
-                                                    <option>Liberal Arts</option>
-                                                    <option>Science</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <select class="form-select">
-                                                    <option>All Levels</option>
-                                                    <option>100-200 (Introductory)</option>
-                                                    <option>300-400 (Intermediate)</option>
-                                                    <option>500+ (Advanced)</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <input type="text" class="form-control" placeholder="Search courses...">
-                                            </div>
-                                        </div>
-
-                                        <div class="table-responsive">
-                                            <table class="table table-hover">
-                                                <thead class="table-light">
-                                                    <tr>
-                                                        <th>Select</th>
-                                                        <th>Course</th>
-                                                        <th>Title</th>
-                                                        <th>Credits</th>
-                                                        <th>Schedule</th>
-                                                        <th>Instructor</th>
-                                                        <th>Seats</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="cs401">
-                                                            </div>
-                                                        </td>
-                                                        <td class="fw-bold">CS401</td>
-                                                        <td>Advanced Algorithms</td>
-                                                        <td>3</td>
-                                                        <td>MWF 10:00-11:00</td>
-                                                        <td>Dr. Johnson</td>
-                                                        <td><span class="badge bg-success">15/30</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="cs420">
-                                                            </div>
-                                                        </td>
-                                                        <td class="fw-bold">CS420</td>
-                                                        <td>Machine Learning</td>
-                                                        <td>3</td>
-                                                        <td>TTh 2:00-3:30</td>
-                                                        <td>Prof. Chen</td>
-                                                        <td><span class="badge bg-warning">25/25</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="cs450" checked>
-                                                            </div>
-                                                        </td>
-                                                        <td class="fw-bold">CS450</td>
-                                                        <td>Computer Networks</td>
-                                                        <td>3</td>
-                                                        <td>MW 1:00-2:30</td>
-                                                        <td>Dr. Rodriguez</td>
-                                                        <td><span class="badge bg-success">12/25</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="math301">
-                                                            </div>
-                                                        </td>
-                                                        <td class="fw-bold">MATH301</td>
-                                                        <td>Discrete Mathematics</td>
-                                                        <td>3</td>
-                                                        <td>MWF 9:00-10:00</td>
-                                                        <td>Prof. Williams</td>
-                                                        <td><span class="badge bg-success">18/30</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="eng201" checked>
-                                                            </div>
-                                                        </td>
-                                                        <td class="fw-bold">ENG201</td>
-                                                        <td>Technical Writing</td>
-                                                        <td>3</td>
-                                                        <td>TTh 11:00-12:30</td>
-                                                        <td>Ms. Davis</td>
-                                                        <td><span class="badge bg-success">20/25</span></td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="card dashboard-card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Selected Courses</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
-                                                <div>
-                                                    <strong>CS450</strong>
-                                                    <br>
-                                                    <small>Computer Networks</small>
-                                                </div>
-                                                <div class="text-end">
-                                                    <span class="badge bg-primary">3 Credits</span>
-                                                    <br>
-                                                    <button class="btn btn-sm btn-outline-danger mt-1">Remove</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
-                                                <div>
-                                                    <strong>ENG201</strong>
-                                                    <br>
-                                                    <small>Technical Writing</small>
-                                                </div>
-                                                <div class="text-end">
-                                                    <span class="badge bg-primary">3 Credits</span>
-                                                    <br>
-                                                    <button class="btn btn-sm btn-outline-danger mt-1">Remove</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <hr>
-                                        <div class="d-flex justify-content-between">
-                                            <strong>Total Credits:</strong>
-                                            <strong>6</strong>
-                                        </div>
-                                        <div class="alert alert-info alert-custom mt-3">
-                                            <small><i class="fas fa-info-circle me-1"></i>
-                                            Minimum 12 credits required for full-time status.</small>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="card dashboard-card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Schedule Preview</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Time</th>
-                                                        <th>Mon</th>
-                                                        <th>Wed</th>
-                                                        <th>Tue</th>
-                                                        <th>Thu</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr>
-                                                        <td class="fw-bold">11:00</td>
-                                                        <td></td>
-                                                        <td></td>
-                                                        <td class="bg-primary text-white text-center small">ENG201</td>
-                                                        <td class="bg-primary text-white text-center small">ENG201</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="fw-bold">1:00</td>
-                                                        <td class="bg-success text-white text-center small">CS450</td>
-                                                        <td class="bg-success text-white text-center small">CS450</td>
-                                                        <td></td>
-                                                        <td></td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div> -->
-
                 </div>
             </div>
         </div>
@@ -1676,7 +1332,52 @@ $progress_percentages = [
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
         });
-    });}
+    });
+    
+    function requestOfficialTranscript(method) {
+        const studentId = <?php echo $student_id; ?>;
+        const studentName = '<?php echo htmlspecialchars($student_name); ?>';
+        const matric = '<?php echo htmlspecialchars($student_matric); ?>';
+        
+        let message = '';
+        switch(method) {
+            case 'email':
+                message = `Official transcript request will be sent to the registrar's office via email. You will receive a confirmation email within 24 hours.`;
+                break;
+            case 'mail':
+                message = `Official transcript will be mailed to your registered address. Processing time: 5-7 business days.`;
+                break;
+            case 'pickup':
+                message = `Official transcript will be available for pickup at the registrar's office. You will be notified when ready (2-3 business days).`;
+                break;
+        }
+        
+        if (confirm(message + '\n\nProceed with request?')) {
+            fetch('../PHP/request_official_transcript.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    student_id: studentId,
+                    method: method,
+                    student_name: studentName,
+                    matric_no: matric
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Official transcript request submitted successfully! Reference ID: ' + data.reference_id);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error submitting request. Please try again.');
+            });
+        }
+    }
     </script>
 </body>
 </html>

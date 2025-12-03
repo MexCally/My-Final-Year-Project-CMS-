@@ -85,7 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
                 $fileTmp = $_FILES['course_image']['tmp_name'];
-                $fileType = mime_content_type($fileTmp);
+                // Use finfo_file if available, else mime_content_type (deprecated)
+                $fileType = function_exists('finfo_file') ? 
+                    finfo_file(finfo_open(FILEINFO_MIME_TYPE), $fileTmp) : 
+                    mime_content_type($fileTmp);
+                
                 $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
                 if (!array_key_exists($fileType, $allowed)) {
                     $errors[] = 'Invalid image type. Allowed: jpg, png, webp.';
@@ -96,38 +100,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $course_code);
                     $filename = $safeCode . '.' . $ext;
                     $target = $uploadDir . $filename;
-                        if (move_uploaded_file($fileTmp, $target)) {
-                            $course_image_path = 'assets/img/courses/' . $filename;
+                    if (move_uploaded_file($fileTmp, $target)) {
+                        $course_image_path = 'assets/img/courses/' . $filename;
 
-                            // Create thumbnails directory
-                            $thumbsDir = $uploadDir . 'thumbs/';
-                            if (!is_dir($thumbsDir)) mkdir($thumbsDir, 0755, true);
+                        // Create thumbnails directory
+                        $thumbsDir = $uploadDir . 'thumbs/';
+                        if (!is_dir($thumbsDir)) mkdir($thumbsDir, 0755, true);
 
-                            // Create a thumbnail (max width 400px)
-                            try {
-                                $srcPath = $target;
-                                $thumbPath = $thumbsDir . $filename;
-                                create_image_thumbnail($srcPath, $thumbPath, 400);
-                            } catch (Exception $thumbEx) {
-                                // non-fatal: thumbnail failed
-                            }
-                        } else {
-                            $errors[] = 'Failed to move uploaded image.';
+                        // Create a thumbnail (max width 400px)
+                        try {
+                            $srcPath = $target;
+                            $thumbPath = $thumbsDir . $filename;
+                            create_image_thumbnail($srcPath, $thumbPath, 400);
+                        } catch (Exception $thumbEx) {
+                            // non-fatal: thumbnail failed, log but continue
+                            error_log('Thumbnail creation failed: ' . $thumbEx->getMessage());
                         }
+                    } else {
+                        $errors[] = 'Failed to move uploaded image.';
+                    }
                 }
             }
 
             if (empty($errors)) {
                 $stmt = $pdo->prepare("INSERT INTO coursetbl (AdminID, lecturer_id, course_code, course_title, course_description, course_unit, department, level, semester, course_image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
                 $stmt->execute([$admin_id, $lecturer_id, $course_code, $course_title, $course_description, $course_unit, $department, $level, $semester, $course_image_path]);
+
+                // Log the activity
+                $course_id = $pdo->lastInsertId();
+                $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
+                $activity_stmt->execute(['add_course', "Added new course: $course_code - $course_title", $_SESSION['admin_id'], 'admin']);
+
+                $success = true;
             }
-
-            // Log the activity
-            $course_id = $pdo->lastInsertId();
-            $activity_stmt = $pdo->prepare("INSERT INTO activity_log (action, description, user_id, user_type) VALUES (?, ?, ?, ?)");
-            $activity_stmt->execute(['add_course', "Added new course: $course_code - $course_title", $_SESSION['admin_id'], 'admin']);
-
-            $success = true;
         } catch (PDOException $e) {
             $errors[] = "Failed to add course: " . $e->getMessage();
         }

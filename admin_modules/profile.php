@@ -444,9 +444,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
             </div>
 
             <div class="action-buttons">
-                <button class="btn btn-custom btn-primary-custom" data-bs-toggle="modal" data-bs-target="#editProfileModal">
-                    <i class="bi bi-pencil-square me-2"></i>Edit Information
-                </button>
                 <a href="change_password.php" class="btn btn-custom btn-warning-custom">
                     <i class="bi bi-key-fill me-2"></i>Change Password
                 </a>
