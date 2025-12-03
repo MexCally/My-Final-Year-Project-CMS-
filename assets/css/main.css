@@ -2666,3 +2666,53 @@ section,
 .read-more-btn:hover {
     background-color: #0056b3;
 }
+
+/*--------------------------------------------------------------
+# Course Details Page
+--------------------------------------------------------------*/
+.course-details-page .course-info {
+  background-color: var(--surface-color);
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.course-details-page .course-meta {
+  background-color: color-mix(in srgb, var(--default-color), transparent 95%);
+  padding: 20px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.course-details-page .course-sidebar {
+  background-color: var(--surface-color);
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.course-details-page .course-actions .btn {
+  margin-bottom: 10px;
+}
+
+.course-details-page .course-info-box {
+  background-color: color-mix(in srgb, var(--default-color), transparent 95%);
+  padding: 20px;
+  border-radius: 6px;
+}
+
+.course-details-page .course-info-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.course-details-page .course-info-box ul li {
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--default-color), transparent 90%);
+}
+
+.course-details-page .course-info-box ul li:last-child {
+  border-bottom: none;
+}
