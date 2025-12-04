@@ -68,11 +68,11 @@ function generateStudentReport($pdo, $type, $student_id) {
             
         case 'course_history':
             $stmt = $pdo->prepare("
-                SELECT c.course_code, c.course_title, cr.registration_date, cr.approval_status
+                SELECT c.course_code, c.course_title, cr.date_registered, cr.approval_status
                 FROM course_regtbl cr
                 JOIN coursetbl c ON cr.course_id = c.course_id
                 WHERE cr.student_id = ?
-                ORDER BY cr.registration_date DESC
+                ORDER BY cr.date_registered DESC
             ");
             $stmt->execute([$student_id]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -84,11 +84,11 @@ function generateCourseReport($pdo, $type, $course_id) {
         case 'enrollment':
             $stmt = $pdo->prepare("
                 SELECT s.Matric_No, s.first_name, s.last_name, s.email, s.Department, s.Level,
-                       cr.registration_date, cr.approval_status
+                       cr.date_registered, cr.approval_status
                 FROM course_regtbl cr
                 JOIN studenttbl s ON cr.student_id = s.student_id
                 WHERE cr.course_id = ?
-                ORDER BY cr.registration_date DESC
+                ORDER BY cr.date_registered DESC
             ");
             $stmt->execute([$course_id]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
