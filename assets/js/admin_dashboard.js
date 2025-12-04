@@ -356,9 +356,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load courses for grades filter
     loadCoursesForGradesFilter()
 
-    // Load data for report selects
-    loadStudentsForReports()
-    loadCoursesForReports()
+    // Load data for report selects when reports section is accessed
+    document.addEventListener('click', function(e) {
+      if (e.target.dataset.section === 'reports') {
+        loadStudentsForReports()
+        loadCoursesForReports()
+      }
+    })
 
     // Report generation event listeners
     const generateStudentReportBtn = document.getElementById("generateStudentReportBtn")
@@ -380,6 +384,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (generateSystemReportBtn) {
       generateSystemReportBtn.addEventListener("click", generateSystemReport)
     }
+
+    // Load submitted grades
+    loadSubmittedGrades()
 
     // Initialize dashboard as active section
     showSection("dashboard")
@@ -2487,20 +2494,12 @@ function loadStudentsForReports() {
   const studentSelect = document.getElementById('studentReportSelect')
   if (!studentSelect) return
 
-  fetch('../PHP/get_students.php')
+  fetch('../PHP/get_report_data.php?type=students')
   .then(response => response.json())
-  .then(data => {
-    if (data.error) {
-      console.error('Error fetching students for reports:', data.error)
-      return
-    }
-
-    // Clear existing options
-    studentSelect.innerHTML = '<option value="">All Students</option>'
-
-    // Add students to dropdown
-    if (Array.isArray(data) && data.length > 0) {
-      data.forEach(student => {
+  .then(result => {
+    if (result.success) {
+      studentSelect.innerHTML = '<option value="">Choose student...</option>'
+      result.data.forEach(student => {
         const option = document.createElement('option')
         option.value = student.student_id
         option.textContent = `${student.Matric_No} - ${student.first_name} ${student.last_name}`
@@ -2518,22 +2517,14 @@ function loadCoursesForReports() {
   const courseSelect = document.getElementById('courseReportSelect')
   if (!courseSelect) return
 
-  fetch('../PHP/get_courses.php')
+  fetch('../PHP/get_report_data.php?type=courses')
   .then(response => response.json())
-  .then(data => {
-    if (data.error) {
-      console.error('Error fetching courses for reports:', data.error)
-      return
-    }
-
-    // Clear existing options
-    courseSelect.innerHTML = '<option value="">All Courses</option>'
-
-    // Add courses to dropdown
-    if (Array.isArray(data) && data.length > 0) {
-      data.forEach(course => {
+  .then(result => {
+    if (result.success) {
+      courseSelect.innerHTML = '<option value="">Choose course...</option>'
+      result.data.forEach(course => {
         const option = document.createElement('option')
-        option.value = course.course_code
+        option.value = course.course_id
         option.textContent = `${course.course_code} - ${course.course_title}`
         courseSelect.appendChild(option)
       })
@@ -2547,88 +2538,264 @@ function loadCoursesForReports() {
 // Report generation functions
 function generateStudentReport() {
   const studentId = document.getElementById('studentReportSelect').value
-  const startDate = document.getElementById('studentReportStartDate').value
-  const endDate = document.getElementById('studentReportEndDate').value
+  const reportType = document.getElementById('studentReportType').value
 
   if (!studentId) {
     alert('Please select a student')
     return
   }
 
-  const params = {
-    student_id: studentId,
-    start_date: startDate,
-    end_date: endDate
-  }
+  const formData = new FormData()
+  formData.append('report_category', 'student')
+  formData.append('report_type', reportType)
+  formData.append('student_id', studentId)
 
-  console.log('Generating student report:', params)
-
-  // For now, show a placeholder message
-  // In a real implementation, this would fetch from a PHP endpoint
-  alert('Student report generation feature will be implemented with PHP backend. Selected student: ' + studentId)
+  generateReport(formData, 'Student Report')
 }
 
 function generateCourseReport() {
-  const courseCode = document.getElementById('courseReportSelect').value
-  const startDate = document.getElementById('courseReportStartDate').value
-  const endDate = document.getElementById('courseReportEndDate').value
+  const courseId = document.getElementById('courseReportSelect').value
+  const reportType = document.getElementById('courseReportType').value
 
-  if (!courseCode) {
+  if (!courseId) {
     alert('Please select a course')
     return
   }
 
-  const params = {
-    course_code: courseCode,
-    start_date: startDate,
-    end_date: endDate
-  }
+  const formData = new FormData()
+  formData.append('report_category', 'course')
+  formData.append('report_type', reportType)
+  formData.append('course_id', courseId)
 
-  console.log('Generating course report:', params)
-
-  // For now, show a placeholder message
-  // In a real implementation, this would fetch from a PHP endpoint
-  alert('Course report generation feature will be implemented with PHP backend. Selected course: ' + courseCode)
+  generateReport(formData, 'Course Report')
 }
 
 function generateDepartmentReport() {
   const department = document.getElementById('departmentReportSelect').value
-  const startDate = document.getElementById('departmentReportStartDate').value
-  const endDate = document.getElementById('departmentReportEndDate').value
+  const reportType = document.getElementById('departmentReportType').value
 
   if (!department) {
     alert('Please select a department')
     return
   }
 
-  const params = {
-    department: department,
-    start_date: startDate,
-    end_date: endDate
-  }
+  const formData = new FormData()
+  formData.append('report_category', 'department')
+  formData.append('report_type', reportType)
+  formData.append('department', department)
 
-  console.log('Generating department report:', params)
-
-  // For now, show a placeholder message
-  // In a real implementation, this would fetch from a PHP endpoint
-  alert('Department report generation feature will be implemented with PHP backend. Selected department: ' + department)
+  generateReport(formData, 'Department Report')
 }
 
 function generateSystemReport() {
   const reportType = document.getElementById('systemReportType').value
-  const startDate = document.getElementById('systemReportStartDate').value
-  const endDate = document.getElementById('systemReportEndDate').value
+  const startDate = document.getElementById('reportStartDate').value
+  const endDate = document.getElementById('reportEndDate').value
 
-  const params = {
-    report_type: reportType,
-    start_date: startDate,
-    end_date: endDate
+  const formData = new FormData()
+  formData.append('report_category', 'system')
+  formData.append('report_type', reportType)
+  if (startDate) formData.append('start_date', startDate)
+  if (endDate) formData.append('end_date', endDate)
+
+  generateReport(formData, 'System Report')
+}
+
+function generateReport(formData, reportTitle) {
+  fetch('../PHP/generate_report.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      displayReportResults(data.data, reportTitle)
+    } else {
+      alert('Error generating report: ' + data.message)
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error)
+    alert('An error occurred while generating the report')
+  })
+}
+
+function displayReportResults(data, title) {
+  if (!data || data.length === 0) {
+    alert('No data found for the selected criteria')
+    return
   }
 
-  console.log('Generating system report:', params)
+  const reportWindow = window.open('', '_blank', 'width=800,height=600')
+  
+  let html = `
+    <html>
+    <head>
+      <title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .print-btn { margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h2>${title}</h2>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+      </div>
+      <button class="print-btn" onclick="window.print()">Print Report</button>
+      <table>
+        <thead>
+          <tr>
+  `
+  
+  if (data.length > 0) {
+    Object.keys(data[0]).forEach(key => {
+      html += `<th>${key.replace(/_/g, ' ').toUpperCase()}</th>`
+    })
+  }
+  
+  html += `
+          </tr>
+        </thead>
+        <tbody>
+  `
+  
+  data.forEach(row => {
+    html += '<tr>'
+    Object.values(row).forEach(value => {
+      html += `<td>${value || 'N/A'}</td>`
+    })
+    html += '</tr>'
+  })
+  
+  html += `
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `
+  
+  reportWindow.document.write(html)
+  reportWindow.document.close()
+}
 
-  // For now, show a placeholder message
-  // In a real implementation, this would fetch from a PHP endpoint
-  alert('System report generation feature will be implemented with PHP backend. Report type: ' + reportType)
+// Load Submitted Grades
+function loadSubmittedGrades() {
+  fetch('../PHP/get_submitted_grades.php')
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      console.error('Error fetching submitted grades:', data.error)
+      return
+    }
+    populateSubmittedGradesTable(data)
+    updateGradeApprovalStats(data)
+  })
+  .catch(error => {
+    console.error('Error loading submitted grades:', error)
+  })
+}
+
+// Populate Submitted Grades Table
+function populateSubmittedGradesTable(data) {
+  const gradesTableBody = document.getElementById('gradesTableBody')
+  if (!gradesTableBody) return
+
+  gradesTableBody.innerHTML = ''
+
+  if (data.length === 0) {
+    gradesTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center text-muted">No submitted grades found</td>
+      </tr>
+    `
+    return
+  }
+
+  data.forEach((submission, index) => {
+    const submittedDate = new Date(submission.submitted_at).toLocaleDateString()
+    const status = submission.approved_at ? 'Approved' : 'Pending'
+    const statusBadge = submission.approved_at ? 'bg-success' : 'bg-warning'
+    
+    const row = document.createElement('tr')
+    row.innerHTML = `
+      <td class="text-center">${index + 1}</td>
+      <td>${submission.course_code}<br><small class="text-muted">${submission.course_title}</small></td>
+      <td>${submission.lecturer_name}</td>
+      <td>${submission.student_count} students</td>
+      <td>${submittedDate}</td>
+      <td><span class="badge ${statusBadge}">${status}</span></td>
+      <td>
+        ${!submission.approved_at ? 
+          `<button class="btn btn-sm btn-success publish-grades-btn" data-submission-id="${submission.id}">
+            <i class="fas fa-upload"></i> Publish
+          </button>` : 
+          `<span class="text-success"><i class="fas fa-check-circle"></i> Published</span>`
+        }
+      </td>
+    `
+    gradesTableBody.appendChild(row)
+  })
+
+  // Attach event listeners for publish buttons
+  document.querySelectorAll('.publish-grades-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const submissionId = this.getAttribute('data-submission-id')
+      publishGrades(submissionId)
+    })
+  })
+}
+
+// Update Grade Approval Statistics
+function updateGradeApprovalStats(data) {
+  const pendingCount = data.filter(submission => !submission.approved_at).length
+  const approvedTodayCount = data.filter(submission => {
+    if (!submission.approved_at) return false
+    const approvedDate = new Date(submission.approved_at).toDateString()
+    const today = new Date().toDateString()
+    return approvedDate === today
+  }).length
+  const totalPublishedCount = data.filter(submission => submission.published).length
+
+  const pendingEl = document.getElementById('pendingGradeApprovalsCount')
+  if (pendingEl) pendingEl.textContent = pendingCount
+
+  const approvedTodayEl = document.getElementById('approvedGradesTodayCount')
+  if (approvedTodayEl) approvedTodayEl.textContent = approvedTodayCount
+
+  const totalPublishedEl = document.getElementById('totalPublishedGradesCount')
+  if (totalPublishedEl) totalPublishedEl.textContent = totalPublishedCount
+}
+
+// Publish Grades
+function publishGrades(submissionId) {
+  if (!confirm('Are you sure you want to publish these grades? This will make them visible to students.')) {
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('submission_id', submissionId)
+
+  fetch('../PHP/approve_grades.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Grades published successfully!')
+      loadSubmittedGrades() // Refresh the table
+    } else {
+      alert('Error: ' + (data.message || 'Failed to publish grades'))
+    }
+  })
+  .catch(error => {
+    console.error('Error publishing grades:', error)
+    alert('An error occurred while publishing grades')
+  })
 }
   

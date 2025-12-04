@@ -72,6 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_registration']
         }
         
         if ($success_count > 0) {
+            // Log activity
+            $activity_stmt = $pdo->prepare("INSERT INTO studentrecentactivitytbl (student_id, activity_type, activity_description) VALUES (?, ?, ?)");
+            $activity_stmt->execute([$student_id, 'Course Registration', "Registered for $success_count courses in $selectedSemester"]);
+            
             $success = "Successfully registered for $success_count course(s)!";
             $existingRegistration = true;
             error_log("Course registration completed - Total courses registered: $success_count");

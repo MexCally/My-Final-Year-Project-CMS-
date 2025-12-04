@@ -2,82 +2,63 @@
 session_start();
 require_once '../config/db.php';
 
-if (!isset($_SESSION['student_id'])) {
-    header('HTTP/1.1 401 Unauthorized');
-    echo json_encode(['success' => false, 'message' => 'Not authenticated']);
-    exit;
+if (!isset($_SESSION['student_id']) && !isset($_SESSION['lecturer_id'])) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit();
 }
 
-$student_id = $_SESSION['student_id'];
-$material_id = $_GET['material_id'] ?? '';
-
-if (empty($material_id)) {
-    header('HTTP/1.1 400 Bad Request');
-    echo json_encode(['success' => false, 'message' => 'Material ID required']);
-    exit;
+if (!isset($_GET['material_id'])) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Material ID is required']);
+    exit();
 }
+
+$material_id = $_GET['material_id'];
 
 try {
-    // Verify student is enrolled in the course that contains this material
-    $enrollStmt = $pdo->prepare("
-        SELECT COUNT(*) FROM course_regtbl cr
-        JOIN course_materialtbl cm ON cr.course_id = cm.course_id
-        WHERE cr.student_id = ? AND cm.material_id = ?
-    ");
-    $enrollStmt->execute([$student_id, $material_id]);
-
-    if ($enrollStmt->fetchColumn() == 0) {
-        header('HTTP/1.1 403 Forbidden');
-        echo json_encode(['success' => false, 'message' => 'Not authorized to download this material']);
-        exit;
-    }
-
-    // Get material details
-    $materialStmt = $pdo->prepare("
-        SELECT m.title, m.file_path_url, m.file_type
-        FROM course_materialtbl m
-        WHERE m.material_id = ?
-    ");
-    $materialStmt->execute([$material_id]);
-    $material = $materialStmt->fetch();
-
+    $stmt = $pdo->prepare("SELECT file_path_url, title FROM course_materialtbl WHERE material_id = ?");
+    $stmt->execute([$material_id]);
+    $material = $stmt->fetch();
+    
     if (!$material) {
-        header('HTTP/1.1 404 Not Found');
+        http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Material not found']);
-        exit;
+        exit();
     }
-
-    $file_path = $material['file_path_url'];
-
-    // Check if file exists
-    if (!file_exists($file_path)) {
-        header('HTTP/1.1 404 Not Found');
-        echo json_encode(['success' => false, 'message' => 'File not found on server']);
-        exit;
+    
+    $filename = basename($material['file_path_url']);
+    
+    // Try multiple file locations
+    $possible_paths = [
+        __DIR__ . '/../uploads/materials/' . $filename,
+        '../uploads/materials/' . $filename,
+        'uploads/materials/' . $filename,
+        __DIR__ . '/uploads/materials/' . $filename
+    ];
+    
+    $file_path = null;
+    foreach ($possible_paths as $path) {
+        if (file_exists($path)) {
+            $file_path = $path;
+            break;
+        }
     }
-
-    // Get file info
-    $file_name = basename($file_path);
-    $file_size = filesize($file_path);
-
-    // Set appropriate headers for download
-    header('Content-Type: ' . mime_content_type($file_path));
-    header('Content-Disposition: attachment; filename="' . $material['title'] . '"');
-    header('Content-Length: ' . $file_size);
-    header('Cache-Control: private, max-age=0, must-revalidate');
-    header('Pragma: public');
-
-    // Clear output buffer
-    if (ob_get_level()) {
-        ob_clean();
+    
+    if (!$file_path) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'File not found: ' . $filename]);
+        exit();
     }
-
-    // Read and output file
+    
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . filesize($file_path));
+    
     readfile($file_path);
-    exit;
-
-} catch (Exception $e) {
-    header('HTTP/1.1 500 Internal Server Error');
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database error']);
 }
 ?>

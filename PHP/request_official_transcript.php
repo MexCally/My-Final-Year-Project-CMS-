@@ -10,79 +10,37 @@ if (!isset($_SESSION['student_id'])) {
 }
 
 $student_id = $_SESSION['student_id'];
-$input = json_decode(file_get_contents('php://input'), true);
+$purpose = $_POST['purpose'] ?? '';
+$delivery_address = $_POST['delivery_address'] ?? '';
 
-$method = $input['method'] ?? '';
-$student_name = $input['student_name'] ?? '';
-$matric_no = $input['matric_no'] ?? '';
-
-if (empty($method)) {
-    echo json_encode(['success' => false, 'message' => 'Request method required']);
+if (empty($purpose) || empty($delivery_address)) {
+    echo json_encode(['success' => false, 'message' => 'Purpose and delivery address are required']);
     exit;
 }
 
 try {
-    // Generate tracking number
-    $tracking_number = 'TR' . date('Ymd') . str_pad($student_id, 4, '0', STR_PAD_LEFT) . rand(100, 999);
+    // Get student info
+    $stmt = $pdo->prepare("SELECT Matric_No, first_name, last_name FROM studenttbl WHERE student_id = ?");
+    $stmt->execute([$student_id]);
+    $student = $stmt->fetch();
     
-    // Determine recipient details based on method
-    $recipient_details = '';
-    switch($method) {
-        case 'email':
-            $recipient_details = 'Email delivery to registered address';
-            break;
-        case 'mail':
-            $recipient_details = 'Postal mail to registered address';
-            break;
-        case 'pickup':
-            $recipient_details = 'In-person pickup at registrar office';
-            break;
+    if (!$student) {
+        echo json_encode(['success' => false, 'message' => 'Student not found']);
+        exit;
     }
     
-    // Insert transcript request
+    $student_name = $student['first_name'] . ' ' . $student['last_name'];
+    $tracking_number = 'TR' . date('Ymd') . rand(1000, 9999);
+    
     $stmt = $pdo->prepare("
-        INSERT INTO transcript_requests (
-            student_matric_no, 
-            student_name, 
-            recipient_type, 
-            recipient_details, 
-            request_date, 
-            status,
-            tracking_number
-        ) VALUES (?, ?, ?, ?, NOW(), 'Pending', ?)
+        INSERT INTO transcript_requests (student_matric_no, student_name, recipient_type, recipient_details, tracking_number)
+        VALUES (?, ?, ?, ?, ?)
     ");
+    $stmt->execute([$student['Matric_No'], $student_name, $purpose, $delivery_address, $tracking_number]);
     
-    $stmt->execute([
-        $matric_no,
-        $student_name,
-        $method,
-        $recipient_details,
-        $tracking_number
-    ]);
+    echo json_encode(['success' => true, 'message' => 'Official transcript request submitted successfully']);
     
-    // Log activity
-    $activityStmt = $pdo->prepare("
-        INSERT INTO studentrecentactivitytbl (
-            student_id, 
-            activity_type, 
-            activity_description, 
-            timestamp
-        ) VALUES (?, ?, ?, NOW())
-    ");
-    
-    $activityStmt->execute([
-        $student_id,
-        'Transcript Request',
-        "Official transcript requested via {$method}. Tracking: {$tracking_number}"
-    ]);
-    
-    echo json_encode([
-        'success' => true, 
-        'message' => 'Transcript request submitted successfully',
-        'reference_id' => $tracking_number
-    ]);
-    
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+} catch (PDOException $e) {
+    echo json_encode(['success' => false, 'message' => 'Database error']);
 }
 ?>

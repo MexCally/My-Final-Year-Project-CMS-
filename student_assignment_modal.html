@@ -1,0 +1,179 @@
+<!-- Assignment Modal -->
+<div class="modal fade" id="assignmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Course Assignments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="assignmentsList">
+                    <div class="text-center py-4">
+                        <div class="spinner-border" role="status"></div>
+                        <p class="mt-2">Loading assignments...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Submit Assignment Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Submit Assignment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="submitForm" enctype="multipart/form-data">
+                    <input type="hidden" id="assignmentId" name="assignment_id">
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Title</label>
+                        <p id="assignmentTitle" class="form-control-plaintext"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="assignmentFile" class="form-label">Upload File</label>
+                        <input type="file" class="form-control" id="assignmentFile" name="assignment_file" required>
+                        <div class="form-text">Accepted formats: PDF, DOC, DOCX, TXT (Max: 10MB)</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitBtn">Submit Assignment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewAssignments(courseId, courseCode) {
+    document.getElementById('assignmentsList').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border" role="status"></div>
+            <p class="mt-2">Loading assignments...</p>
+        </div>
+    `;
+    
+    new bootstrap.Modal(document.getElementById('assignmentModal')).show();
+    
+    fetch(`PHP/get_student_assignments.php?course_id=${courseId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAssignments(data.assignments, courseCode);
+            } else {
+                document.getElementById('assignmentsList').innerHTML = `
+                    <div class="alert alert-danger">Error: ${data.message}</div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('assignmentsList').innerHTML = `
+                <div class="alert alert-danger">Failed to load assignments</div>
+            `;
+        });
+}
+
+function displayAssignments(assignments, courseCode) {
+    if (assignments.length === 0) {
+        document.getElementById('assignmentsList').innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No assignments available for ${courseCode}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `<h6 class="mb-3">${courseCode} Assignments</h6>`;
+    
+    assignments.forEach(assignment => {
+        const dueDate = new Date(assignment.due_date);
+        const isOverdue = dueDate < new Date();
+        const isSubmitted = assignment.sub_id !== null;
+        
+        html += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title">${assignment.title}</h6>
+                            <p class="card-text text-muted small">${assignment.description}</p>
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>
+                                Due: ${dueDate.toLocaleDateString()} ${dueDate.toLocaleTimeString()}
+                                ${isOverdue ? '<span class="text-danger ms-1">(Overdue)</span>' : ''}
+                            </small>
+                            <br>
+                            <small class="text-muted">
+                                <i class="fas fa-star me-1"></i>Max Score: ${assignment.max_score} points
+                            </small>
+                        </div>
+                        <div>
+                            ${isSubmitted ? 
+                                `<span class="badge bg-success">Submitted</span>
+                                 <br><small class="text-muted">on ${new Date(assignment.submitted_at).toLocaleDateString()}</small>` :
+                                `<button class="btn btn-primary btn-sm" onclick="openSubmitModal(${assignment.assignment_id}, '${assignment.title}')" ${isOverdue ? 'disabled' : ''}>
+                                    Submit
+                                </button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    document.getElementById('assignmentsList').innerHTML = html;
+}
+
+function openSubmitModal(assignmentId, title) {
+    document.getElementById('assignmentId').value = assignmentId;
+    document.getElementById('assignmentTitle').textContent = title;
+    document.getElementById('assignmentFile').value = '';
+    
+    bootstrap.Modal.getInstance(document.getElementById('assignmentModal')).hide();
+    new bootstrap.Modal(document.getElementById('submitModal')).show();
+}
+
+document.getElementById('submitBtn').addEventListener('click', function() {
+    const assignmentId = document.getElementById('assignmentId').value;
+    const fileInput = document.getElementById('assignmentFile');
+    
+    if (!assignmentId || !fileInput.files[0]) {
+        alert('Please select a file to upload');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('assignment_id', assignmentId);
+    formData.append('assignment_file', fileInput.files[0]);
+    
+    this.disabled = true;
+    this.textContent = 'Submitting...';
+    
+    fetch('PHP/submit_assignment.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Assignment submitted successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('submitModal')).hide();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Failed to submit assignment');
+    })
+    .finally(() => {
+        this.disabled = false;
+        this.textContent = 'Submit Assignment';
+    });
+});
+</script>

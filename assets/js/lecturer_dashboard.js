@@ -228,6 +228,13 @@ document.addEventListener("DOMContentLoaded", () => {
             location.reload() // Simple refresh for now
           }
         } else {
+          // Check if it's a session error
+          if (data.message && data.message.includes('Session expired')) {
+            alert('Your session has expired. Please log in again.')
+            window.location.href = '../authentications/lecturer_login.html'
+            return
+          }
+          
           // Show error message
           if (data.errors && Array.isArray(data.errors)) {
             showNotification(data.errors.join('<br>'), 'danger')
@@ -734,6 +741,63 @@ document.addEventListener("DOMContentLoaded", () => {
     })
   }
 
+  // Assignment score saving functionality (using event delegation)
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.save-assignment-score-btn')) {
+      const button = e.target.closest('.save-assignment-score-btn')
+      const subId = button.getAttribute('data-sub-id')
+      const scoreInput = document.querySelector(`input[data-sub-id="${subId}"]`)
+      const score = scoreInput.value.trim()
+      
+      if (!score) {
+        showNotification('Please enter a score', 'warning')
+        return
+      }
+      
+      const scoreValue = parseFloat(score)
+      const maxScore = parseFloat(scoreInput.getAttribute('max'))
+      
+      if (scoreValue < 0 || scoreValue > maxScore) {
+        showNotification(`Score must be between 0 and ${maxScore}`, 'warning')
+        return
+      }
+      
+      const originalHtml = button.innerHTML
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'
+      button.disabled = true
+      
+      const formData = new FormData()
+      formData.append('sub_id', subId)
+      formData.append('score', scoreValue)
+      
+      fetch('../PHP/save_assignment_grade.php', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification(data.message, 'success')
+          // Update status badge
+          const row = button.closest('tr')
+          const statusBadge = row.querySelector('.badge')
+          statusBadge.className = 'badge bg-success'
+          statusBadge.textContent = 'Graded'
+        } else {
+          showNotification(data.message || 'Failed to save score', 'danger')
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error)
+        showNotification('An error occurred while saving the score', 'danger')
+      })
+      .finally(() => {
+        button.innerHTML = originalHtml
+        button.disabled = false
+      })
+    }
+  })
+
   // Save all grades functionality
   const saveAllButtons = document.querySelectorAll('.save-all-grades-btn')
   saveAllButtons.forEach(button => {
@@ -767,6 +831,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize tooltips (if Bootstrap tooltips are needed)
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
   const tooltipList = tooltipTriggerList.map((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl))
+
+  // Edit student grade functionality
+  const editStudentGradeBtn = document.getElementById('editStudentGradeBtn')
+  if (editStudentGradeBtn) {
+    editStudentGradeBtn.addEventListener('click', function() {
+      // Close the details modal and switch to grading section
+      const modal = bootstrap.Modal.getInstance(document.getElementById('studentDetailsModal'))
+      modal.hide()
+      
+      // Switch to grading section
+      document.querySelector('[data-section="grading"]').click()
+      
+      showNotification('Switched to grading section to edit student grades', 'info')
+    })
+  }
 
   // Function to fetch assignment submissions
   function fetchAssignmentSubmissions(assignmentId) {
@@ -1349,23 +1428,17 @@ function formatActivityTime(timestamp) {
 
 // Function to refresh dashboard statistics
 function refreshDashboardStats() {
-  fetch('../PHP/refresh_lecturer_stats.php')
+  fetch('../PHP/get_lecturer_dashboard_stats.php')
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        // Update the stats cards
         const stats = data.stats
-        
-        // Update total courses
-        const totalCoursesElement = document.querySelector('.h5.mb-0.font-weight-bold.text-gray-800')
-        if (totalCoursesElement) {
-          totalCoursesElement.textContent = stats.total_courses
-        }
-        
-        // Update all stats cards
         const statsCards = document.querySelectorAll('.h5.mb-0.font-weight-bold.text-gray-800')
+        
         if (statsCards.length >= 4) {
-          statsCards[0].textContent = stats.total_courses
+          // Update courses with proper text
+          const coursesText = stats.total_courses + ' ' + (stats.total_courses === 1 ? 'Course' : 'Courses')
+          statsCards[0].innerHTML = `<a href="#courses" class="text-decoration-none">${coursesText}</a>`
           statsCards[1].textContent = stats.total_students
           statsCards[2].textContent = stats.pending_grades
           statsCards[3].textContent = stats.assignments_due
@@ -1375,4 +1448,144 @@ function refreshDashboardStats() {
     .catch(error => {
       console.error('Error refreshing stats:', error)
     })
+}
+
+// Function to view student academic details
+function viewStudentDetails(studentId, courseId) {
+  // Show the modal first
+  const modal = new bootstrap.Modal(document.getElementById('studentDetailsModal'))
+  modal.show()
+  
+  // Fetch student details
+  fetch(`../PHP/get_student_academic_details.php?student_id=${studentId}&course_id=${courseId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const student = data.student
+        
+        // Populate student information
+        document.getElementById('studentDetailsTitle').textContent = `${student.first_name} ${student.last_name} - Academic Details`
+        document.getElementById('modalStudentName').textContent = `${student.first_name} ${student.last_name}`
+        document.getElementById('modalStudentMatric').textContent = student.matric_number
+        document.getElementById('modalStudentDept').textContent = student.department
+        document.getElementById('modalStudentLevel').textContent = student.level
+        
+        // Populate course performance
+        document.getElementById('modalCourseName').textContent = `${student.course_code} - ${student.course_title}`
+        
+        const gradeInfo = getGradeDisplayInfo(student.grade || 'N/A')
+        document.getElementById('modalCurrentGrade').innerHTML = `<span class="badge ${gradeInfo.class}">${student.grade || 'Not Graded'}</span>`
+        document.getElementById('modalTotalScore').textContent = `${student.total_score || 0}%`
+        document.getElementById('modalGradePoint').textContent = student.grade_point || 'N/A'
+        
+        // Populate score breakdown
+        const caScore = student.ca_score || 0
+        const testScore = student.test_score || 0
+        const examScore = student.exam_score || 0
+        
+        document.getElementById('modalCAScore').textContent = caScore
+        document.getElementById('modalTestScore').textContent = testScore
+        document.getElementById('modalExamScore').textContent = examScore
+        
+        // Update progress bars
+        document.getElementById('modalCAProgress').style.width = `${(caScore / 30) * 100}%`
+        document.getElementById('modalTestProgress').style.width = `${(testScore / 20) * 100}%`
+        document.getElementById('modalExamProgress').style.width = `${(examScore / 50) * 100}%`
+        
+        // Load assignment scores
+        loadStudentAssignmentScores(studentId, courseId)
+        
+      } else {
+        showNotification(data.message || 'Failed to load student details', 'danger')
+      }
+    })
+    .catch(error => {
+      console.error('Error loading student details:', error)
+      showNotification('Error loading student details', 'danger')
+    })
+}
+
+// Function to load student assignment scores
+function loadStudentAssignmentScores(studentId, courseId) {
+  const container = document.getElementById('studentAssignmentsContainer')
+  
+  fetch(`../PHP/get_student_assignment_scores.php?student_id=${studentId}&course_id=${courseId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.assignments.length > 0) {
+        container.innerHTML = `
+          <div class="card">
+            <div class="card-header">
+              <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Assignment Scores</h6>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Assignment</th>
+                      <th>Score</th>
+                      <th>Max Score</th>
+                      <th>Percentage</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data.assignments.map(assignment => {
+                      const percentage = assignment.max_score > 0 ? ((assignment.score_received / assignment.max_score) * 100).toFixed(1) : 0
+                      const status = assignment.score_received !== null ? 'Graded' : 'Pending'
+                      const statusClass = assignment.score_received !== null ? 'bg-success' : 'bg-warning'
+                      
+                      return `
+                        <tr>
+                          <td>${assignment.title}</td>
+                          <td>${assignment.score_received || '-'}</td>
+                          <td>${assignment.max_score}</td>
+                          <td>${assignment.score_received !== null ? percentage + '%' : '-'}</td>
+                          <td><span class="badge ${statusClass}">${status}</span></td>
+                        </tr>
+                      `
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `
+      } else {
+        container.innerHTML = `
+          <div class="card">
+            <div class="card-header">
+              <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Assignment Scores</h6>
+            </div>
+            <div class="card-body text-center py-3">
+              <i class="fas fa-tasks fa-2x text-muted mb-2"></i>
+              <p class="text-muted mb-0">No assignments found for this course</p>
+            </div>
+          </div>
+        `
+      }
+    })
+    .catch(error => {
+      console.error('Error loading assignment scores:', error)
+      container.innerHTML = `
+        <div class="alert alert-warning" role="alert">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Could not load assignment scores
+        </div>
+      `
+    })
+}
+
+// Function to get grade display info (helper function)
+function getGradeDisplayInfo(grade) {
+  switch (grade) {
+    case 'A': return { class: 'bg-success' }
+    case 'B': return { class: 'bg-warning' }
+    case 'C': return { class: 'bg-info' }
+    case 'D': return { class: 'bg-secondary' }
+    case 'E': return { class: 'bg-danger' }
+    case 'F': return { class: 'bg-danger' }
+    default: return { class: 'bg-secondary' }
+  }
 }

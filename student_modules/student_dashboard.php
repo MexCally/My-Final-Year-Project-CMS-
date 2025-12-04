@@ -479,6 +479,9 @@ $progress_percentages = [
                         <a class="nav-link" href="#courses" data-section="courses">
                             <i class="fas fa-book"></i>My Courses
                         </a>
+                        <a class="nav-link" href="student_assignments.php">
+                            <i class="fas fa-tasks"></i>Assignments
+                        </a>
                         <a class="nav-link" href="#results" data-section="results">
                             <i class="fas fa-chart-line"></i>Results
                         </a>
@@ -904,9 +907,7 @@ $progress_percentages = [
                                         <i class="fas fa-envelope me-2"></i>Request Official
                                     </button>
                                     <ul class="dropdown-menu">
-                                        <li><a class="dropdown-item" href="#" onclick="requestOfficialTranscript('email')"><i class="fas fa-envelope me-2"></i>Email Request</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="requestOfficialTranscript('mail')"><i class="fas fa-mail-bulk me-2"></i>Postal Mail</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="requestOfficialTranscript('pickup')"><i class="fas fa-hand-paper me-2"></i>In-Person Pickup</a></li>
+                                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#transcriptRequestModal"><i class="fas fa-envelope me-2"></i>Request Official Transcript</a></li>
                                     </ul>
                                 </div>
                             </div>
@@ -1140,6 +1141,47 @@ $progress_percentages = [
         </div>
     </div>
 
+    <!-- Official Transcript Request Modal -->
+    <div class="modal fade" id="transcriptRequestModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-certificate me-2"></i>Request Official Transcript</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="transcriptRequestForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="transcriptPurpose" class="form-label">Purpose of Request *</label>
+                            <select class="form-select" id="transcriptPurpose" name="purpose" required>
+                                <option value="">Select purpose...</option>
+                                <option value="job_application">Job Application</option>
+                                <option value="graduate_school">Graduate School Application</option>
+                                <option value="transfer">Transfer to Another Institution</option>
+                                <option value="scholarship">Scholarship Application</option>
+                                <option value="personal">Personal Records</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deliveryAddress" class="form-label">Delivery Address *</label>
+                            <textarea class="form-control" id="deliveryAddress" name="delivery_address" rows="3" placeholder="Enter complete delivery address..." required></textarea>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Processing Time:</strong> 3-5 business days<br>
+                            <strong>Fee:</strong> Official transcripts may incur processing fees
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Submit Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/student_dashboard.js"></script>
     <script>
@@ -1340,50 +1382,39 @@ $progress_percentages = [
         });
     });
     
-    function requestOfficialTranscript(method) {
-        const studentId = <?php echo $student_id; ?>;
-        const studentName = '<?php echo htmlspecialchars($student_name); ?>';
-        const matric = '<?php echo htmlspecialchars($student_matric); ?>';
+    // Handle transcript request form
+    document.getElementById('transcriptRequestForm').addEventListener('submit', function(e) {
+        e.preventDefault();
         
-        let message = '';
-        switch(method) {
-            case 'email':
-                message = `Official transcript request will be sent to the registrar's office via email. You will receive a confirmation email within 24 hours.`;
-                break;
-            case 'mail':
-                message = `Official transcript will be mailed to your registered address. Processing time: 5-7 business days.`;
-                break;
-            case 'pickup':
-                message = `Official transcript will be available for pickup at the registrar's office. You will be notified when ready (2-3 business days).`;
-                break;
-        }
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
         
-        if (confirm(message + '\n\nProceed with request?')) {
-            fetch('../PHP/request_official_transcript.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    student_id: studentId,
-                    method: method,
-                    student_name: studentName,
-                    matric_no: matric
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Official transcript request submitted successfully! Reference ID: ' + data.reference_id);
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(error => {
-                alert('Error submitting request. Please try again.');
-            });
-        }
-    }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+        
+        fetch('../PHP/request_official_transcript.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Official transcript request submitted successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('transcriptRequestModal')).hide();
+                this.reset();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error submitting request. Please try again.');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+    });
     </script>
 </body>
 </html>

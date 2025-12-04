@@ -470,7 +470,35 @@ try {
                     <div class="row mb-4">
                         <div class="col">
                             <h2 class="text-primary">Grade Management</h2>
-                            <p class="text-muted">Manage student grades and evaluations</p>
+                            <p class="text-muted">Review and approve grades submitted by lecturers</p>
+                        </div>
+                    </div>
+
+                    <!-- Grade Approval Stats -->
+                    <div class="row mb-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-left-warning shadow">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Grade Approvals</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="pendingGradeApprovalsCount">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-left-success shadow">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Approved Today</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="approvedGradesTodayCount">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-left-info shadow">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Published</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalPublishedGradesCount">Loading...</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -507,20 +535,25 @@ try {
                     </div>
 
                     <div class="card shadow">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="m-0 font-weight-bold text-primary">Submitted Grades Awaiting Approval</h6>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-warning active" data-filter="pending">Pending</button>
+                                <button type="button" class="btn btn-sm btn-outline-success" data-filter="approved">Approved</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="all">All</button>
+                            </div>
+                        </div>
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table table-bordered">
                                     <thead>
                                         <tr>
                                             <th>S/N</th>
-                                            <th>Matric No</th>
-                                            <th>Student Name</th>
-                                            <th>Course Code</th>
-                                            <th>Course Title</th>
-                                            <th>Department</th>
-                                            <th>Level</th>
-                                            <th>Grade</th>
+                                            <th>Course</th>
                                             <th>Lecturer</th>
+                                            <th>Students</th>
+                                            <th>Submitted At</th>
+                                            <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>

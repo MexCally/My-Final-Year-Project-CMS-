@@ -30,8 +30,20 @@ try {
     // Get the filename from the stored path
     $filename = basename($material['file_path_url']);
     
-    // Construct the actual file path
-    $file_path = __DIR__ . '/../uploads/materials/' . $filename;
+    // Construct the actual file path - try multiple locations
+    $possible_paths = [
+        __DIR__ . '/../uploads/materials/' . $filename,
+        '../uploads/materials/' . $filename,
+        'uploads/materials/' . $filename
+    ];
+    
+    $file_path = null;
+    foreach ($possible_paths as $path) {
+        if (file_exists($path)) {
+            $file_path = $path;
+            break;
+        }
+    }
     
     if (!file_exists($file_path)) {
         http_response_code(404);

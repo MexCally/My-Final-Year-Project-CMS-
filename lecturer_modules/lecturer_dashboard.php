@@ -16,45 +16,11 @@ if (!isset($_SESSION['lecturer_id'])) {
 $lecturer_id = (int)($_SESSION['lecturer_id'] ?? 0);
 $lecturer_name = $_SESSION['lecturer_name'] ?? '';
 
-// Get dashboard statistics
-try {
-    // Total courses assigned to this lecturer
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM coursetbl WHERE lecturer_id = ?");
-    $stmt->execute([$lecturer_id]);
-    $total_courses = $stmt->fetch()['count'];
-    
-    // Total unique students enrolled in ALL of lecturer's courses
-    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cr.student_id) as count FROM course_regtbl cr 
-                          JOIN coursetbl c ON cr.course_id = c.course_id 
-                          WHERE c.lecturer_id = ? AND cr.approval_status = 'Approved'");
-    $stmt->execute([$lecturer_id]);
-    $total_students = $stmt->fetch()['count'];
-    
-    // Pending grades (results without grades for lecturer's courses)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM resulttbl r 
-                          JOIN coursetbl c ON r.course_id = c.course_id 
-                          WHERE c.lecturer_id = ? AND (r.grade IS NULL OR r.grade = '')");
-    $stmt->execute([$lecturer_id]);
-    $pending_grades = $stmt->fetch()['count'];
-    
-    // Assignments due (adjust based on your assignment table structure)
-    try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM assignmenttbl a 
-                              JOIN coursetbl c ON a.course_id = c.course_id 
-                              WHERE c.lecturer_id = ? AND a.due_date >= CURDATE()");
-        $stmt->execute([$lecturer_id]);
-        $assignments_due = $stmt->fetch()['count'];
-    } catch (PDOException $e2) {
-        $assignments_due = 0; // Table might not exist
-    }
-    
-} catch (PDOException $e) {
-    // Set default values if queries fail
-    $total_courses = 0;
-    $total_students = 0;
-    $pending_grades = 0;
-    $assignments_due = 0;
-}
+// Dashboard statistics will be loaded dynamically via JavaScript
+$total_courses = 0;
+$total_students = 0;
+$pending_grades = 0;
+$assignments_due = 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -118,6 +84,12 @@ try {
                             <a class="nav-link" href="#grading" data-section="grading">
                                 <i class="fas fa-clipboard-list me-2"></i>
                                 Student Grading
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#assignment-grading" data-section="assignment-grading">
+                                <i class="fas fa-tasks me-2"></i>
+                                Assignment Grading
                             </a>
                         </li>
                         <li class="nav-item">
@@ -440,10 +412,10 @@ try {
                                 c.course_code,
                                 c.course_title,
                                 c.course_unit,
-                                e.ca_score,
-                                e.test_score,
-                                e.exam_score,
-                                e.total_score,
+                                COALESCE(e.ca_score, 0) as ca_score,
+                                COALESCE(e.test_score, 0) as test_score,
+                                COALESCE(e.exam_score, 0) as exam_score,
+                                COALESCE(e.total_score, 0) as total_score,
                                 e.grade,
                                 e.grade_point,
                                 e.quality_points,
@@ -452,7 +424,7 @@ try {
                             JOIN course_regtbl cr ON s.student_id = cr.student_id
                             JOIN coursetbl c ON cr.course_id = c.course_id
                             LEFT JOIN evaluationtbl e ON s.student_id = e.student_id AND c.course_id = e.course_id
-                            WHERE c.lecturer_id = ? AND cr.approval_status = 'Approved'
+                            WHERE c.lecturer_id = ? AND cr.approval_status IN ('Approved', 'Registered')
                             ORDER BY c.course_code, s.Matric_No
                         ");
                         $stmt->execute([$lecturer_id]);
@@ -597,6 +569,138 @@ try {
                                         <button class="btn btn-warning submit-grades-btn" data-course-id="<?php echo $course_id; ?>">
                                             <i class="fas fa-paper-plane me-2"></i>Submit to Records
                                         </button>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Assignment Grading Section -->
+                <div id="assignment-grading" class="content-section" style="display: none;">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Assignment Grading</h1>
+                    </div>
+
+                    <?php
+                    // Fetch assignment submissions for lecturer's assignments
+                    try {
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                a.assignment_id,
+                                a.title as assignment_title,
+                                a.max_score,
+                                c.course_code,
+                                c.course_title,
+                                s.student_id,
+                                s.Matric_No as matric_number,
+                                s.first_name,
+                                s.last_name,
+                                sub.sub_id,
+                                sub.file_path,
+                                sub.submitted_at,
+                                sub.score_received
+                            FROM assignmenttbl a
+                            JOIN coursetbl c ON a.course_id = c.course_id
+                            JOIN ass_subtbl sub ON a.assignment_id = sub.assignment_id
+                            JOIN studenttbl s ON sub.student_id = s.student_id
+                            WHERE a.lecturer_id = ?
+                            ORDER BY a.assignment_id, s.Matric_No
+                        ");
+                        $stmt->execute([$lecturer_id]);
+                        $assignment_submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        // Group by assignment
+                        $assignments_with_submissions = [];
+                        foreach ($assignment_submissions as $submission) {
+                            $assignment_id = $submission['assignment_id'];
+                            if (!isset($assignments_with_submissions[$assignment_id])) {
+                                $assignments_with_submissions[$assignment_id] = [
+                                    'assignment_title' => $submission['assignment_title'],
+                                    'course_code' => $submission['course_code'],
+                                    'course_title' => $submission['course_title'],
+                                    'max_score' => $submission['max_score'],
+                                    'submissions' => []
+                                ];
+                            }
+                            $assignments_with_submissions[$assignment_id]['submissions'][] = $submission;
+                        }
+                    } catch (PDOException $e) {
+                        $assignments_with_submissions = [];
+                    }
+                    ?>
+
+                    <?php if (empty($assignments_with_submissions)): ?>
+                        <div class="card shadow">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No Assignment Submissions</h5>
+                                <p class="text-muted">No students have submitted assignments yet.</p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($assignments_with_submissions as $assignment_id => $assignment_data): ?>
+                            <div class="card shadow mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0"><?php echo htmlspecialchars($assignment_data['course_code'] . ' - ' . $assignment_data['assignment_title']); ?></h5>
+                                    <span class="badge bg-primary"><?php echo count($assignment_data['submissions']); ?> Submissions</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Matric Number</th>
+                                                    <th>Student Name</th>
+                                                    <th>Submitted At</th>
+                                                    <th>Score (Max: <?php echo $assignment_data['max_score']; ?>)</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($assignment_data['submissions'] as $submission): ?>
+                                                    <tr>
+                                                        <td><strong><?php echo htmlspecialchars($submission['matric_number']); ?></strong></td>
+                                                        <td><?php echo htmlspecialchars($submission['first_name'] . ' ' . $submission['last_name']); ?></td>
+                                                        <td><?php echo date('M j, Y g:i A', strtotime($submission['submitted_at'])); ?></td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm" style="width: 150px;">
+                                                                <input type="number" class="form-control assignment-score-input" 
+                                                                       data-sub-id="<?php echo $submission['sub_id']; ?>"
+                                                                       value="<?php echo $submission['score_received'] ?? ''; ?>"
+                                                                       min="0" max="<?php echo $assignment_data['max_score']; ?>" 
+                                                                       step="0.1" placeholder="0-<?php echo $assignment_data['max_score']; ?>">
+                                                                <button class="btn btn-outline-success btn-sm save-assignment-score-btn"
+                                                                        data-sub-id="<?php echo $submission['sub_id']; ?>"
+                                                                        title="Save Score">
+                                                                    <i class="fas fa-save"></i>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($submission['score_received'] !== null): ?>
+                                                                <span class="badge bg-success">Graded</span>
+                                                            <?php else: ?>
+                                                                <span class="badge bg-warning">Pending</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-primary me-1"
+                                                                    onclick="window.open('../<?php echo $submission['file_path']; ?>', '_blank')"
+                                                                    title="View Submission">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
+                                                            <a href="../<?php echo $submission['file_path']; ?>" 
+                                                               class="btn btn-sm btn-outline-info" 
+                                                               download title="Download">
+                                                                <i class="fas fa-download"></i>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -887,7 +991,8 @@ try {
                                             <td>
                                                 <button class="btn btn-sm btn-outline-primary view-student-details" 
                                                         data-student-id="<?php echo $record['student_id']; ?>"
-                                                        data-course-id="<?php echo $record['course_id']; ?>">View Details</button>
+                                                        data-course-id="<?php echo $record['course_id']; ?>"
+                                                        onclick="viewStudentDetails('<?php echo $record['student_id']; ?>', '<?php echo $record['course_id']; ?>')">View Details</button>
                                             </td>
                                         </tr>
                                         <?php endif; endforeach; ?>
@@ -1333,6 +1438,98 @@ try {
         </div>
     </div>
 
+    <!-- Student Academic Details Modal -->
+    <div class="modal fade" id="studentDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="studentDetailsTitle">Student Academic Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="fas fa-user me-2"></i>Student Information</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Name:</strong> <span id="modalStudentName"></span></p>
+                                    <p><strong>Matric No:</strong> <span id="modalStudentMatric"></span></p>
+                                    <p><strong>Department:</strong> <span id="modalStudentDept"></span></p>
+                                    <p><strong>Level:</strong> <span id="modalStudentLevel"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>Course Performance</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Course:</strong> <span id="modalCourseName"></span></p>
+                                    <p><strong>Current Grade:</strong> <span id="modalCurrentGrade"></span></p>
+                                    <p><strong>Total Score:</strong> <span id="modalTotalScore"></span></p>
+                                    <p><strong>Grade Point:</strong> <span id="modalGradePoint"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Score Breakdown</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h5 class="text-primary" id="modalCAScore">0</h5>
+                                        <p class="text-muted mb-0">CA Score (30)</p>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-primary" id="modalCAProgress" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h5 class="text-warning" id="modalTestScore">0</h5>
+                                        <p class="text-muted mb-0">Test Score (20)</p>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-warning" id="modalTestProgress" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h5 class="text-success" id="modalExamScore">0</h5>
+                                        <p class="text-muted mb-0">Exam Score (50)</p>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-success" id="modalExamProgress" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="studentAssignmentsContainer" class="mt-4">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 mb-0">Loading assignment scores...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="editStudentGradeBtn">Edit Grades</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="../assets/js/lecturer_dashboard.js"></script>
@@ -1435,7 +1632,12 @@ try {
                 const courseId = e.target.closest('.submit-grades-btn').dataset.courseId;
                 
                 if (confirm('Are you sure you want to submit these grades to the records office? This action cannot be undone.')) {
-                    fetch('../handlers/submit_grades.php', {
+                    const button = e.target.closest('.submit-grades-btn');
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+                    button.disabled = true;
+                    
+                    fetch('../PHP/submit_grades_to_records.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ course_id: courseId })
@@ -1444,11 +1646,20 @@ try {
                     .then(data => {
                         if (data.success) {
                             alert('Grades submitted successfully!');
+                            button.innerHTML = '<i class="fas fa-check me-2"></i>Submitted';
+                            button.classList.remove('btn-warning');
+                            button.classList.add('btn-success');
                         } else {
                             alert('Error: ' + data.message);
+                            button.innerHTML = originalText;
+                            button.disabled = false;
                         }
                     })
-                    .catch(() => alert('Network error occurred'));
+                    .catch(() => {
+                        alert('Network error occurred');
+                        button.innerHTML = originalText;
+                        button.disabled = false;
+                    });
                 }
             }
             

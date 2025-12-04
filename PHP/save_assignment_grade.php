@@ -45,10 +45,10 @@ try {
     // Update the grade
     $updateStmt = $pdo->prepare("
         UPDATE ass_subtbl
-        SET score_received = ?, comments = ?, graded_at = NOW()
+        SET score_received = ?, graded_at = NOW()
         WHERE sub_id = ?
     ");
-    $updateStmt->execute([$score, $comments, $sub_id]);
+    $updateStmt->execute([$score, $sub_id]);
 
     echo json_encode([
         'success' => true,

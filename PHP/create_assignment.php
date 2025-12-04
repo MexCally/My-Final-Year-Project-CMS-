@@ -5,7 +5,7 @@ require_once '../config/db.php';
 // Check if lecturer is logged in
 if (!isset($_SESSION['lecturer_id'])) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
+    echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.']);
     exit();
 }
 
@@ -84,6 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $activity_stmt = $pdo->prepare("INSERT INTO lecturerrecentactivitytbl (LecturerID, activity_type, activity_description) VALUES (?, ?, ?)");
             $activity_description = "Created assignment: " . $title;
             $activity_stmt->execute([$lecturer_id, 'assignment_created', $activity_description]);
+            
+            // Add deadline entry
+            $deadline_stmt = $pdo->prepare("INSERT INTO deadlinetbl (course_id, lecturer_id, title, description, deadline_date) VALUES (?, ?, ?, ?, ?)");
+            $deadline_stmt->execute([$course_id, $lecturer_id, 'Assignment: ' . $title, $description, $due_date]);
             
             echo json_encode([
                 'success' => true,
