@@ -14,8 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $student_id = $_SESSION['student_id'];
 $assignment_id = $_POST['assignment_id'] ?? '';
+$comments = $_POST['comments'] ?? '';
 
-if (empty($assignment_id) || !isset($_FILES['assignment_file'])) {
+if (empty($assignment_id) || !isset($_FILES['submission_file'])) {
     echo json_encode(['success' => false, 'message' => 'Assignment ID and file are required']);
     exit;
 }
@@ -31,7 +32,7 @@ try {
     }
     
     // Handle file upload
-    $file = $_FILES['assignment_file'];
+    $file = $_FILES['submission_file'];
     $upload_dir = '../uploads/assignments/';
     
     if (!is_dir($upload_dir)) {
@@ -44,8 +45,8 @@ try {
     
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
         // Save submission record
-        $stmt = $pdo->prepare("INSERT INTO ass_subtbl (assignment_id, student_id, file_path) VALUES (?, ?, ?)");
-        $stmt->execute([$assignment_id, $student_id, 'uploads/assignments/' . $filename]);
+        $stmt = $pdo->prepare("INSERT INTO ass_subtbl (assignment_id, student_id, file_path, comments) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$assignment_id, $student_id, 'uploads/assignments/' . $filename, $comments]);
         
         // Log activity
         $activity_stmt = $pdo->prepare("INSERT INTO studentrecentactivitytbl (student_id, activity_type, activity_description) VALUES (?, ?, ?)");

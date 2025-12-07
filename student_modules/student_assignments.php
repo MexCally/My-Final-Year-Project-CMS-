@@ -189,9 +189,13 @@ try {
                             <p id="assignmentTitle" class="form-control-plaintext fw-bold"></p>
                         </div>
                         <div class="mb-3">
-                            <label for="assignmentFile" class="form-label">Upload File</label>
-                            <input type="file" class="form-control" id="assignmentFile" name="assignment_file" required>
+                            <label for="assignmentFile" class="form-label">Upload File *</label>
+                            <input type="file" class="form-control" id="assignmentFile" name="submission_file" required>
                             <div class="form-text">Accepted formats: PDF, DOC, DOCX, TXT (Max: 10MB)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="submissionComments" class="form-label">Comments (Optional)</label>
+                            <textarea class="form-control" id="submissionComments" name="comments" rows="3" placeholder="Add any comments about your submission..."></textarea>
                         </div>
                     </form>
                 </div>
@@ -216,7 +220,7 @@ try {
             const form = document.getElementById('submitForm');
             const formData = new FormData(form);
             
-            if (!formData.get('assignment_file')) {
+            if (!formData.get('submission_file') || !formData.get('submission_file').name) {
                 alert('Please select a file to upload');
                 return;
             }

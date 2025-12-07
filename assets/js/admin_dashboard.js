@@ -1524,9 +1524,17 @@ fetch('../PHP/delete_student.php', {
         document.getElementById("viewStudentStatus").innerHTML =
           `<span class="badge ${statusBadge}">Active</span>`
 
-        // Set additional view-only data (courses and GPA are examples - would need separate queries)
-        document.getElementById("viewStudentCourses").textContent = "N/A" // Placeholder
-        document.getElementById("viewStudentGPA").textContent = "N/A" // Placeholder
+        // Fetch additional details (courses, semester GPA, and CGPA)
+        fetch(`../PHP/get_student_details.php?student_id=${studentId}`)
+        .then(response => response.json())
+        .then(details => {
+          if (details.success) {
+            document.getElementById("viewStudentCourses").textContent = details.courses_enrolled
+            document.getElementById("viewStudentSemesterGPA").textContent = details.semester_gpa
+            document.getElementById("viewStudentCGPA").textContent = details.cgpa
+          }
+        })
+        .catch(error => console.error('Error loading student details:', error))
 
         console.log("[v0] Student view modal populated for:", studentId)
       } else {
@@ -1537,6 +1545,12 @@ fetch('../PHP/delete_student.php', {
       console.error('Error loading student details:', error)
       alert("Error loading student details")
     })
+  }
+
+  function viewStudentDetails(studentId) {
+    populateStudentViewModal(studentId)
+    const modal = new window.bootstrap.Modal(document.getElementById("viewStudentModal"))
+    modal.show()
   }
   
   function updateAdminProfile(profileData) {

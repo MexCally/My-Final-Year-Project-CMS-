@@ -512,6 +512,9 @@ $progress_percentages = [
                             </span>
                         </div>
 
+                        <!-- Decline Notification -->
+                        <div id="declineNotification" style="display: none;"></div>
+
                         <!-- Stats Cards -->
                         <div class="row mb-4">
                             <div class="col-md-3">
@@ -637,6 +640,9 @@ $progress_percentages = [
 
                     <!-- My Courses Section -->
                     <div id="courses" class="content-section" style="display: none;">
+                        <!-- Decline Notification for Courses -->
+                        <div id="coursesDeclineNotification" style="display: none;"></div>
+
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2 class="text-primary fw-bold">My Registered Courses</h2>
                             <div class="dropdown">
@@ -1123,13 +1129,13 @@ $progress_percentages = [
                             <input type="text" class="form-control" id="assignmentTitle" readonly>
                         </div>
                         <div class="mb-3">
-                            <label for="submissionFile" class="form-label">Upload File</label>
+                            <label for="submissionFile" class="form-label">Upload File *</label>
                             <input type="file" class="form-control" id="submissionFile" name="submission_file" required>
                             <div class="form-text">Accepted formats: PDF, DOC, DOCX, TXT (Max: 10MB)</div>
                         </div>
                         <div class="mb-3">
                             <label for="submissionComments" class="form-label">Comments (Optional)</label>
-                            <textarea class="form-control" id="submissionComments" name="comments" rows="3"></textarea>
+                            <textarea class="form-control" id="submissionComments" name="comments" rows="3" placeholder="Add any comments about your submission..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1185,6 +1191,36 @@ $progress_percentages = [
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/student_dashboard.js"></script>
     <script>
+    // Check for decline reason
+    fetch('../PHP/get_decline_reason.php')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.has_decline) {
+                const alertHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                        <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Course Registration Declined</h5>
+                        <p><strong>Reason:</strong> ${data.reason}</p>
+                        <p class="mb-0"><strong>Details:</strong> ${data.details}</p>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                
+                // Show in dashboard
+                const dashboardNotification = document.getElementById('declineNotification');
+                if (dashboardNotification) {
+                    dashboardNotification.innerHTML = alertHTML;
+                    dashboardNotification.style.display = 'block';
+                }
+                
+                // Show in courses section
+                const coursesNotification = document.getElementById('coursesDeclineNotification');
+                if (coursesNotification) {
+                    coursesNotification.innerHTML = alertHTML;
+                    coursesNotification.style.display = 'block';
+                }
+            }
+        });
+
     // Client-side session verification: calls server endpoint and redirects if session invalid
     (function(){
         fetch('../PHP/check_session.php', { credentials: 'include' })
@@ -1306,7 +1342,7 @@ $progress_percentages = [
                                                     `<div class="text-end">
                                                         <small class="text-success d-block">Submitted: ${new Date(assignment.submitted_at).toLocaleDateString()}</small>
                                                         ${assignment.score_received !== null && assignment.score_received !== undefined ?
-                                                            `<small class="text-primary fw-bold">Grade: ${assignment.score_received}/100</small>` :
+                                                            `<small class="text-primary fw-bold">Grade: ${assignment.score_received}/${assignment.max_score}</small>` :
                                                             `<small class="text-warning">Grade: Pending</small>`
                                                         }
                                                     </div>` :

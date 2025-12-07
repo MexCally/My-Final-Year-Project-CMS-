@@ -41,7 +41,8 @@ try {
             CONCAT(l.First_name, ' ', l.Last_Name) AS lecturer_name,
             s.sub_id,
             s.submitted_at,
-            s.file_path AS submission_file
+            s.file_path AS submission_file,
+            s.score_received
         FROM assignmenttbl a
         JOIN coursetbl c ON a.course_id = c.course_id
         LEFT JOIN lecturertbl l ON a.lecturer_id = l.LecturerID

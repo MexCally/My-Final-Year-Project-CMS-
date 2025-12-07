@@ -1349,16 +1349,22 @@ try {
                     </div>
                     <hr>
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label"><strong>Courses Enrolled</strong></label>
                                 <p class="text-muted" id="viewStudentCourses">-</p>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label"><strong>GPA</strong></label>
-                                <p class="text-muted" id="viewStudentGPA">-</p>
+                                <label class="form-label"><strong>Semester GPA</strong></label>
+                                <p class="text-muted" id="viewStudentSemesterGPA">-</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>CGPA</strong></label>
+                                <p class="text-muted" id="viewStudentCGPA">-</p>
                             </div>
                         </div>
                     </div>

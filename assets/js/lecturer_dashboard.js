@@ -414,60 +414,164 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Assignment search functionality
   const assignmentSearchInput = document.getElementById('assignmentSearch')
-  const assignmentSearchButton = assignmentSearchInput?.nextElementSibling?.querySelector('button')
-  
-  function performAssignmentSearch() {
-    const searchTerm = assignmentSearchInput.value.toLowerCase().trim()
-    const assignmentCards = document.querySelectorAll('#assignmentsContainer .card')
-    let visibleCount = 0
-    
-    assignmentCards.forEach(card => {
-      const cardText = card.textContent.toLowerCase()
-      
-      if (cardText.includes(searchTerm) || searchTerm === '') {
-        card.style.display = ''
-        visibleCount++
-      } else {
-        card.style.display = 'none'
-      }
-    })
-    
-    // Show/hide no results message for assignments
-    const container = document.getElementById('assignmentsContainer')
-    let noResultsMsg = container.querySelector('.no-results-message')
-    
-    if (visibleCount === 0 && searchTerm !== '' && assignmentCards.length > 0) {
-      if (!noResultsMsg) {
-        noResultsMsg = document.createElement('div')
-        noResultsMsg.className = 'no-results-message text-center py-4'
-        noResultsMsg.innerHTML = '<i class="fas fa-search fa-2x text-muted mb-3"></i><p class="text-muted">No assignments found matching your search.</p>'
-        container.appendChild(noResultsMsg)
-      }
-      noResultsMsg.style.display = ''
-    } else if (noResultsMsg) {
-      noResultsMsg.style.display = 'none'
-    }
-  }
-  
   if (assignmentSearchInput) {
-    // Search on input (real-time)
-    assignmentSearchInput.addEventListener('input', performAssignmentSearch)
-    
-    // Search on Enter key
-    assignmentSearchInput.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        performAssignmentSearch()
-      }
-    })
-    
-    // Search button click
-    if (assignmentSearchButton) {
-      assignmentSearchButton.addEventListener('click', function(e) {
-        e.preventDefault()
-        performAssignmentSearch()
+    assignmentSearchInput.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase().trim()
+      const cards = document.querySelectorAll('#assignmentsContainer .col-md-6')
+      
+      cards.forEach(card => {
+        const title = card.querySelector('.card-title')?.textContent.toLowerCase() || ''
+        const courseCode = card.querySelector('.card-header h6')?.textContent.toLowerCase() || ''
+        const description = card.querySelector('.card-text')?.textContent.toLowerCase() || ''
+        
+        if (title.includes(searchTerm) || courseCode.includes(searchTerm) || description.includes(searchTerm) || searchTerm === '') {
+          card.style.display = ''
+        } else {
+          card.style.display = 'none'
+        }
       })
+    })
+  }
+
+  // Assignment submission actions - View, Download, Export
+  document.addEventListener('click', function(e) {
+    // View submission
+    if (e.target.closest('.btn-outline-primary') && e.target.closest('.btn-outline-primary').title === 'View Submission') {
+      e.preventDefault()
+      const btn = e.target.closest('.btn-outline-primary')
+      let filePath = btn.getAttribute('onclick')?.match(/window\.open\('([^']+)'/)?.[1]
+      if (filePath) {
+        // Fix path: extract just uploads/assignments/filename
+        filePath = filePath.replace(/.*\/(uploads\/assignments\/.+)$/, '../$1')
+        window.open(filePath, '_blank')
+      }
     }
+    
+    // Download submission
+    if (e.target.closest('.btn-outline-info') && e.target.closest('.btn-outline-info').title === 'Download') {
+      e.preventDefault()
+      const link = e.target.closest('.btn-outline-info')
+      let filePath = link.getAttribute('href')
+      if (filePath) {
+        // Fix path: extract just uploads/assignments/filename
+        filePath = filePath.replace(/.*\/(uploads\/assignments\/.+)$/, '../$1')
+        const a = document.createElement('a')
+        a.href = filePath
+        a.download = ''
+        a.click()
+      }
+    }
+  })
+
+  // Assignment grading search functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const assignmentGradingSection = document.getElementById('assignment-grading')
+    if (assignmentGradingSection) {
+      // Add search input if not exists
+      const header = assignmentGradingSection.querySelector('.border-bottom')
+      if (header && !document.getElementById('assignmentGradingSearch')) {
+        const searchDiv = document.createElement('div')
+        searchDiv.className = 'col-md-4'
+        searchDiv.innerHTML = `
+          <div class="input-group">
+            <input type="text" class="form-control" id="assignmentGradingSearch" placeholder="Search by student name, matric number, course...">
+            <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+          </div>
+        `
+        header.appendChild(searchDiv)
+        
+        // Add search functionality
+        const searchInput = document.getElementById('assignmentGradingSearch')
+        searchInput.addEventListener('input', function() {
+          const searchTerm = this.value.toLowerCase().trim()
+          const tables = assignmentGradingSection.querySelectorAll('table')
+          
+          tables.forEach(table => {
+            const rows = table.querySelectorAll('tbody tr')
+            let visibleCount = 0
+            
+            rows.forEach(row => {
+              const text = row.textContent.toLowerCase()
+              if (text.includes(searchTerm) || searchTerm === '') {
+                row.style.display = ''
+                visibleCount++
+              } else {
+                row.style.display = 'none'
+              }
+            })
+          })
+        })
+      }
+    }
+  })
+
+  // Export students list
+  document.addEventListener('click', function(e) {
+    if (e.target.id === 'exportStudentsBtn') {
+      const table = document.querySelector('#studentsTableContainer table')
+      if (!table) {
+        showNotification('No students to export', 'warning')
+        return
+      }
+      
+      const rows = table.querySelectorAll('tbody tr')
+      let csvContent = 'Matric Number,Student Name,Email,Phone,Department,Level\n'
+      
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td')
+        if (cells.length >= 6) {
+          const data = Array.from(cells).slice(0, 6).map(c => `"${c.textContent.trim()}"`).join(',')
+          csvContent += data + '\n'
+        }
+      })
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'enrolled_students.csv'
+      a.click()
+      window.URL.revokeObjectURL(url)
+    }
+  })
+
+  // Export submissions list
+  const exportSubmissionsBtn = document.getElementById('exportSubmissionsBtn')
+  if (exportSubmissionsBtn) {
+    exportSubmissionsBtn.addEventListener('click', function() {
+      const table = document.querySelector('#submissionsTableContainer table')
+      if (!table) {
+        showNotification('No submissions to export', 'warning')
+        return
+      }
+      
+      const rows = table.querySelectorAll('tbody tr')
+      let csvContent = 'Matric Number,Student Name,Submitted At,Score,Status\n'
+      
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td')
+        if (cells.length >= 5) {
+          const matricNumber = cells[0].textContent.trim()
+          const studentName = cells[1].textContent.trim()
+          const submittedAt = cells[2].textContent.trim()
+          const score = cells[3].querySelector('input')?.value || 'Not graded'
+          const status = cells[4].textContent.trim()
+          
+          csvContent += `"${matricNumber}","${studentName}","${submittedAt}","${score}","${status}"\n`
+        }
+      })
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const assignmentTitle = document.getElementById('submissionAssignmentTitle')?.textContent || 'submissions'
+      a.href = url
+      a.download = `${assignmentTitle.replace(/\s+/g, '_')}_submissions.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      
+      showNotification('Submissions list exported successfully', 'success')
+    })
   }
 
   // General search functionality for other tables
@@ -719,13 +823,15 @@ document.addEventListener("DOMContentLoaded", () => {
     submissionSearchInput.addEventListener('input', function() {
       const searchTerm = this.value.toLowerCase()
       const rows = document.querySelectorAll('#submissionsTable tbody tr')
-      
+
       rows.forEach(row => {
         const text = row.textContent.toLowerCase()
         row.style.display = text.includes(searchTerm) ? '' : 'none'
       })
     })
   }
+
+  // Note: Export submissions functionality is already handled above
 
   // Student search functionality
   const studentSearchInput = document.getElementById('studentSearch')
@@ -933,12 +1039,12 @@ document.addEventListener("DOMContentLoaded", () => {
                       </td>
                       <td>
                         <button class="btn btn-sm btn-outline-primary me-1"
-                                onclick="downloadSubmission('${submission.sub_id}', '${submission.file_name}')"
+                                onclick="downloadSubmission('${submission.file_path}', '${submission.file_name}')"
                                 title="Download">
                           <i class="fas fa-download"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-info"
-                                onclick="viewSubmission('${submission.sub_id}')"
+                                onclick="viewSubmission('${submission.file_path}')"
                                 title="View">
                           <i class="fas fa-eye"></i>
                         </button>

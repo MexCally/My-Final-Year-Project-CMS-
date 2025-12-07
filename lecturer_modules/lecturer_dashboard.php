@@ -1056,7 +1056,13 @@ $assignments_due = 0;
                         <div class="row">
                             <div class="col-md-6">
                                 <label for="academicYear" class="form-label">Academic Year</label>
-                                <input type="text" class="form-control" id="academicYear" name="academic_year" placeholder="e.g., 2023/2024" required>
+                                <select class="form-select" id="academicYear" name="academic_year" required>
+                                    <option value="">Select Academic Year</option>
+                                    <option value="2023/2024">2023/2024</option>
+                                    <option value="2024/2025" selected>2024/2025</option>
+                                    <option value="2025/2026">2025/2026</option>
+                                    <option value="2026/2027">2026/2027</option>
+                                </select>
                             </div>
                             <div class="col-md-6">
                                 <label for="assignmentSemester" class="form-label">Semester</label>
