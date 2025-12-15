@@ -277,7 +277,7 @@ $assignments_due = 0;
                             c.semester,
                             COUNT(DISTINCT cr.student_id) as enrolled_students
                         FROM coursetbl c
-                        LEFT JOIN course_regtbl cr ON c.course_id = cr.course_id AND cr.approval_status = 'Approved'
+                        LEFT JOIN course_regtbl cr ON c.course_id = cr.course_id AND cr.approval_status IN ('Approved', 'Registered')
                         WHERE c.lecturer_id = ?
                         GROUP BY c.course_id
                         ORDER BY c.course_code");

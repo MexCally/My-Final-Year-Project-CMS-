@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../config/db.php';
+require_once 'admin_security.php';
 
 // Sanitize input
 function sanitize_input($data) {
@@ -15,10 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $email = sanitize_input($_POST['email']);
 $password = $_POST['password'];
+$admin_key = $_POST['admin_key'] ?? '';
 
 $errors = [];
 
 // Validate fields
+// First check admin access key
+if (!AdminSecurity::validateAdminKey($admin_key)) {
+    $errors[] = "Invalid admin access key. Contact system administrator.";
+}
+
 if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     $errors[] = "A valid email is required.";
 }

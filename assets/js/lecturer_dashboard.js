@@ -505,6 +505,135 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   })
 
+  // View Students functionality
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.view-students-btn')) {
+      const btn = e.target.closest('.view-students-btn')
+      const courseId = btn.getAttribute('data-course-id')
+      const courseCode = btn.getAttribute('data-course-code')
+      const courseTitle = btn.getAttribute('data-course-title')
+      
+      // Update modal title
+      document.getElementById('viewStudentsTitle').textContent = `${courseCode} - Enrolled Students`
+      
+      // Load students
+      loadEnrolledStudents(courseId)
+    }
+  })
+
+  function loadEnrolledStudents(courseId) {
+    const container = document.getElementById('studentsTableContainer')
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading students...</p>
+      </div>
+    `
+    
+    fetch(`../PHP/get_enrolled_students.php?course_id=${courseId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        displayEnrolledStudents(data.students)
+      } else {
+        container.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Error loading students: ${data.error}
+          </div>
+        `
+      }
+    })
+    .catch(error => {
+      container.innerHTML = `
+        <div class="alert alert-danger">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Error loading students
+        </div>
+      `
+    })
+  }
+
+  function displayEnrolledStudents(students) {
+    const container = document.getElementById('studentsTableContainer')
+    
+    if (students.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-4">
+          <i class="fas fa-users fa-3x text-muted mb-3"></i>
+          <h5 class="text-muted">0 students</h5>
+          <p class="text-muted">No students enrolled in this course</p>
+        </div>
+      `
+      return
+    }
+    
+    let tableHTML = `
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>${students.length} students</strong> enrolled in this course
+      </div>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>S/N</th>
+            <th>Matric No</th>
+            <th>Student Name</th>
+            <th>Department</th>
+            <th>Level</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Enrollment Date</th>
+          </tr>
+        </thead>
+        <tbody>
+    `
+    
+    students.forEach((student, index) => {
+      const enrollmentDate = new Date(student.date_registered).toLocaleDateString()
+      tableHTML += `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${student.Matric_No}</strong></td>
+          <td>${student.first_name} ${student.last_name}</td>
+          <td>${student.Department}</td>
+          <td>${student.Level}</td>
+          <td>${student.email}</td>
+          <td>${student.Phone_Num || 'N/A'}</td>
+          <td>${enrollmentDate}</td>
+        </tr>
+      `
+    })
+    
+    tableHTML += `
+        </tbody>
+      </table>
+    `
+    
+    container.innerHTML = tableHTML
+  }
+
+  // Student search functionality
+  document.getElementById('studentSearch')?.addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase().trim()
+    const table = document.querySelector('#studentsTableContainer table')
+    
+    if (table) {
+      const rows = table.querySelectorAll('tbody tr')
+      
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase()
+        if (text.includes(searchTerm) || searchTerm === '') {
+          row.style.display = ''
+        } else {
+          row.style.display = 'none'
+        }
+      })
+    }
+  })
+
   // Export students list
   document.addEventListener('click', function(e) {
     if (e.target.id === 'exportStudentsBtn') {

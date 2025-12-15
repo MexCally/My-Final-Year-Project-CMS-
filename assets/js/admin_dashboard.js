@@ -625,10 +625,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function populateCourseEditModal(courseCode) {
     console.log("[v0] Attempting to populate course modal for:", courseCode)
 
-    // Load lecturers first
-    loadLecturersForCourseEdit()
-
-    // Fetch course data from the database
+    // Fetch course data first
     fetch(`../PHP/get_courses.php?course_code=${courseCode}`)
     .then(response => response.json())
     .then(data => {
@@ -640,6 +637,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const course = data[0] // Assuming single course is returned
       if (course) {
+        // Populate basic fields first
         document.getElementById("editCourseId").value = course.course_id
         document.getElementById("editCourseCode").value = course.course_code || ''
         document.getElementById("editCourseTitle").value = course.course_title || ''
@@ -648,7 +646,14 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("editCourseDepartment").value = course.department || ''
         document.getElementById("editCourseLevel").value = course.level || ''
         document.getElementById("editCourseSemester").value = course.semester || ''
-        document.getElementById("editCourseLecturer").value = course.lecturer_id || ''
+
+        // Load lecturers and then set the selected lecturer
+        loadLecturersForCourseEdit().then(() => {
+          const lecturerSelect = document.getElementById("editCourseLecturer")
+          if (lecturerSelect && course.lecturer_id) {
+            lecturerSelect.value = course.lecturer_id
+          }
+        })
 
         // Populate image preview if available
         const preview = document.getElementById('editCourseImagePreview')
@@ -970,9 +975,9 @@ fetch('../PHP/edit_student.php', {
   // Load Lecturers for Course Edit Dropdown
   function loadLecturersForCourseEdit() {
     const lecturerSelect = document.getElementById('editCourseLecturer')
-    if (!lecturerSelect) return
+    if (!lecturerSelect) return Promise.resolve()
 
-    fetch('../PHP/get_lecturers.php')
+    return fetch('../PHP/get_lecturers.php')
     .then(response => response.json())
     .then(data => {
       if (data.error) {

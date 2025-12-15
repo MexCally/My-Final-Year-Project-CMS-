@@ -491,6 +491,9 @@ $progress_percentages = [
                         <a class="nav-link" href="course_selection.php">
                             <i class="fas fa-plus-circle"></i>Course Selection
                         </a>
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#contactAdminModal">
+                            <i class="fas fa-envelope"></i>Contact Admin
+                        </a>
                     </nav>
                 </div>
             </div>
@@ -1182,6 +1185,45 @@ $progress_percentages = [
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Submit Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Admin Modal -->
+    <div class="modal fade" id="contactAdminModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-envelope me-2"></i>Contact Admin</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="../forms/studenthelp.php" method="post" class="php-email-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="studentName" class="form-label">Your Name *</label>
+                            <input type="text" class="form-control" id="studentName" name="name" value="<?php echo htmlspecialchars($student_name); ?>" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="studentEmail" class="form-label">Your Email *</label>
+                            <input type="email" class="form-control" id="studentEmail" name="email" value="<?php echo htmlspecialchars($student['email']); ?>" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="helpSubject" class="form-label">Subject *</label>
+                            <input type="text" class="form-control" id="helpSubject" name="subject" value="Student Help Request" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="helpMessage" class="form-label">Message *</label>
+                            <textarea class="form-control" id="helpMessage" name="message" rows="4" placeholder="Describe your issue or question..." required></textarea>
+                        </div>
+                        <div class="loading" style="display: none;">Loading</div>
+                        <div class="error-message" style="display: none;"></div>
+                        <div class="sent-message" style="display: none;">Your message has been sent. Thank you!</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
                     </div>
                 </form>
             </div>

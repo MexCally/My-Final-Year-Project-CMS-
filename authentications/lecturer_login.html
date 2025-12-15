@@ -488,15 +488,21 @@ form > p:last-of-type a:hover {
       <h3>Contact Admin</h3>
       <p>Fill out the form below to send a message.</p>
 
-      <form id="contactForm">
+      <form action="../forms/studenthelp.php" method="post" class="php-email-form">
         <label for="name">Your Name:</label>
-        <input type="text" placeholder="Your Name" required>
+        <input type="text" name="name" placeholder="Your Name" required>
 
         <label for="email">Your Email:</label>
-        <input type="email" placeholder="Your Email" required>
+        <input type="email" name="email" placeholder="Your Email" required>
+
+        <input type="hidden" name="subject" value="Password Reset Request - Lecturer">
 
         <label for="message">Message:</label>
-        <textarea placeholder="Your Message" rows="4" required></textarea>
+        <textarea name="message" rows="4" required>I forgot my password and need it reset. Please help me regain access to my lecturer account.</textarea>
+
+        <div class="loading" style="display: none;">Sending...</div>
+        <div class="error-message" style="display: none;"></div>
+        <div class="sent-message" style="display: none;">Your request has been sent!</div>
 
         <button type="submit">Send Message</button>
         <button type="button" onclick="closePopup()">Close</button>
@@ -512,13 +518,7 @@ form > p:last-of-type a:hover {
       document.getElementById("popupForm").style.display = "none";
     }
 
-    // Reset form on submit
-    document.getElementById("contactForm").addEventListener("submit", function(event) {
-      event.preventDefault(); 
-      alert("Your message has been sent to the Admin!");
-      this.reset(); 
-      closePopup(); 
-    });
+
 
     // Show/Hide password toggle
     function togglePassword() {

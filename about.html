@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>About Us - CourseManager</title>
+  <link href="assets/img/logo1.jpg" rel="icon">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/vendor/aos/aos.css" rel="stylesheet">
+  <link href="assets/css/main.css" rel="stylesheet">
+</head>
+
+<body>
+  <header id="header" class="header d-flex align-items-center sticky-top">
+    <div class="container-fluid container-xl position-relative d-flex align-items-center">
+      <a href="index.html" class="logo d-flex align-items-center me-auto">
+        <h1 class="sitename">CourseManager</h1>
+      </a>
+      <nav id="navmenu" class="navmenu">
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="searchcourse.php">Search Course</a></li>
+          <li><a href="admin_register.html">Register</a></li>
+          <li class="dropdown"><a href="#"><span>Login</span> <i class="bi bi-chevron-down toggle-dropdown"></i></a>
+            <ul>
+              <li><a href="authentications/student_login.html">Student</a></li>
+              <li><a href="authentications/lecturer_login.html">Lecturer</a></li>
+              <li><a href="authentications/admin_login.html">Admin</a></li>
+            </ul>
+          </li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="help.html">Help</a></li>
+        </ul>
+        <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-title dark-background">
+      <div class="container position-relative">
+        <h1>About Our Platform</h1>
+        <nav class="breadcrumbs">
+          <ol>
+            <li><a href="index.html">Home</a></li>
+            <li class="current">About</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+
+    <section class="about-details section">
+      <div class="container">
+        <div class="row gy-4">
+          <div class="col-lg-8">
+            <h2>Transforming Education Through Technology</h2>
+            <p>Our Course Management System represents a revolutionary approach to academic administration and learning management. Built with modern web technologies and designed with user experience at its core, our platform bridges the gap between traditional educational methods and digital innovation.</p>
+            
+            <h3>Our Vision</h3>
+            <p>We envision a world where educational institutions can seamlessly manage their academic processes while providing students and educators with intuitive tools that enhance the learning experience. Our platform eliminates administrative bottlenecks and creates a collaborative environment where knowledge flows freely.</p>
+            
+            <h3>What Makes Us Different</h3>
+            <ul class="list-unstyled">
+              <li><i class="bi bi-check-circle text-primary me-2"></i>Comprehensive role-based access for administrators, lecturers, and students</li>
+              <li><i class="bi bi-check-circle text-primary me-2"></i>Real-time grade computation and CGPA calculation</li>
+              <li><i class="bi bi-check-circle text-primary me-2"></i>Automated course registration approval workflow</li>
+              <li><i class="bi bi-check-circle text-primary me-2"></i>Integrated assignment submission and feedback system</li>
+              <li><i class="bi bi-check-circle text-primary me-2"></i>Dynamic reporting and analytics dashboard</li>
+              <li><i class="bi bi-check-circle text-primary me-2"></i>Mobile-responsive design for access anywhere</li>
+            </ul>
+
+            <h3>Our Technology Stack</h3>
+            <p>Built using PHP OOP, MySQL, HTML5, CSS3, and JavaScript, our platform ensures reliability, security, and scalability. We employ modern development practices including PDO for database security, AJAX for seamless user interactions, and responsive design principles for optimal user experience across all devices.</p>
+
+            <h3>Security & Privacy</h3>
+            <p>We prioritize the security of your academic data. Our system implements robust authentication mechanisms, secure session management, and encrypted data transmission. All user information is protected according to industry best practices and educational data privacy standards.</p>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="info-box">
+              <h4>Platform Statistics</h4>
+              <ul class="list-unstyled">
+                <li><strong>Launch Year:</strong> 2025</li>
+                <li><strong>Technology:</strong> HTML, CSS, JavaScript, Bootstrap, PHP, MySQL.</li>
+                <li><strong>User Roles:</strong> 3 (Admin, Lecturer, Student)</li>
+                <li><strong>Core Features:</strong> 15+</li>
+                <li><strong>Mobile Support:</strong> Full Responsive</li>
+              </ul>
+            </div>
+
+            <div class="info-box mt-4">
+              <h4>Key Benefits</h4>
+              <ul class="list-unstyled">
+                <li><i class="bi bi-arrow-right text-primary me-2"></i>Streamlined course management</li>
+                <li><i class="bi bi-arrow-right text-primary me-2"></i>Automated grade calculations</li>
+                <li><i class="bi bi-arrow-right text-primary me-2"></i>Enhanced student-lecturer communication</li>
+                <li><i class="bi bi-arrow-right text-primary me-2"></i>Comprehensive academic reporting</li>
+                <li><i class="bi bi-arrow-right text-primary me-2"></i>Reduced administrative workload</li>
+              </ul>
+            </div>
+
+            <div class="text-center mt-4">
+              <a href="index.html" class="btn btn-primary">Back to Home</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="footer" class="footer dark-background">
+    <div class="container copyright text-center mt-4">
+      <p id="copyright"></p>
+    </div>
+  </footer>
+
+  <!-- Scroll Top -->
+  <a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/vendor/aos/aos.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script>
+    document.getElementById("copyright").innerHTML = "&copy; " + new Date().getFullYear() + " CourseManager. All Rights Reserved.<br>Developer: Callistus";
+  </script>
+</body>
+</html>

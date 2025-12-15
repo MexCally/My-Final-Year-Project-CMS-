@@ -158,11 +158,14 @@
             <div class="contact-section">
                 <h3>Still need help?</h3>
                 <p>If you couldn't find an answer, our support team is ready to assist you.</p>
-                <p>
-                    <a href="mailto:stellaukas@gmail.com">
-                        <i class="bi bi-envelope"></i> Contact Support
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="mailto:stellaukas@gmail.com" class="btn btn-primary">
+                        <i class="bi bi-envelope me-2"></i>Email Support
                     </a>
-                </p>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#contactAdminModal">
+                        <i class="bi bi-chat-dots me-2"></i>Contact Admin
+                    </button>
+                </div>
             </div>
         </div>
     </main>
@@ -222,6 +225,45 @@
     </div>
 
   </footer>
+
+  <!-- Contact Admin Modal -->
+  <div class="modal fade" id="contactAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-envelope me-2"></i>Contact Admin</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form action="forms/studenthelp.php" method="post" class="php-email-form">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="helpStudentName" class="form-label">Your Name *</label>
+              <input type="text" class="form-control" id="helpStudentName" name="name" required>
+            </div>
+            <div class="mb-3">
+              <label for="helpStudentEmail" class="form-label">Your Email *</label>
+              <input type="email" class="form-control" id="helpStudentEmail" name="email" required>
+            </div>
+            <div class="mb-3">
+              <label for="helpStudentSubject" class="form-label">Subject *</label>
+              <input type="text" class="form-control" id="helpStudentSubject" name="subject" value="Student Help Request" required>
+            </div>
+            <div class="mb-3">
+              <label for="helpStudentMessage" class="form-label">Message *</label>
+              <textarea class="form-control" id="helpStudentMessage" name="message" rows="4" placeholder="Describe your issue or question..." required></textarea>
+            </div>
+            <div class="loading" style="display: none;">Loading</div>
+            <div class="error-message" style="display: none;"></div>
+            <div class="sent-message" style="display: none;">Your message has been sent. Thank you!</div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Send Message</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <!-- Scroll Top -->
   <a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
